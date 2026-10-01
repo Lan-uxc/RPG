@@ -57,7 +57,7 @@ Converts settled facts + director plan into readable Traditional Chinese prose a
 Runs outside the game server:
 - Samsung
 - Hermes Agent
-- Codex CLI
+- Hermes 內建 OpenAI Codex provider
 - ChatGPT sign-in
 
 It is for repository maintenance only.
