@@ -67,7 +67,8 @@ async function auth(c:string,t:string){
 }
 async function npcPatch(id:string,p:any){
  const q:any={updated_at:new Date().toISOString()}
- for(const k of ['status','trust','tension','scene_key','state'])if(p[k]!==undefined)q[k]=p[k]
+ for(const k of ['status','trust','tension','state'])if(p[k]!==undefined)q[k]=p[k]
+ if(p.scene_key!==undefined)q.scene_key=legalScene(p.scene_key)
  await db.from('game_npc_states').update(q).eq('id',id)
 }
 function viewNpc(n:any){
@@ -130,6 +131,8 @@ function worldBand(min:number){
 }
 function locationLabel(w:any){return w.location||'奧馬哈海灘外海'}
 const DEFAULT_SCENARIO='normandy_1944'
+const VALID_SCENES=new Set(['normandy_open','omaha_waterline','omaha_shingle','omaha_high','inland_hedgerow'])
+function legalScene(scene:string|undefined,fallback='normandy_open'){return scene&&VALID_SCENES.has(scene)?scene:fallback}
 async function loadScenario(key:string){
  const {data}=await db.from('game_scenarios').select('*').eq('scenario_key',key).eq('is_active',true).maybeSingle()
  return data||null
@@ -137,6 +140,10 @@ async function loadScenario(key:string){
 async function loadPlace(scenarioKey:string,sceneKey:string){
  const {data}=await db.from('game_places').select('*').eq('scenario_key',scenarioKey).eq('scene_key',sceneKey).maybeSingle()
  return data||null
+}
+async function loadEnabledRoutes(scenarioKey:string,sceneKey:string){
+ const {data}=await db.from('game_routes').select('*').eq('scenario_key',scenarioKey).eq('from_scene_key',sceneKey).eq('is_enabled',true)
+ return data||[]
 }
 function routeWords(route:any){
  const to=String(route.to_scene_key||'')
@@ -237,21 +244,21 @@ async function tickNpcs(w:any,npcs:any[],from:number,to:number,notes:string[]){
  if(m&&m.status!=='死亡'){
   if(band==='beach_chaos')await npcPatch(m.id,{status:'把失散盟軍往較高的掩體集中',state:{...(m.state||{}),goal:'讓附近盟軍離開水際'}})
   else if(['breakout','highground'].includes(band))await npcPatch(m.id,{status:'帶著臨時小組尋找離開灘頭的路',scene_key:'omaha_high',state:{...(m.state||{}),goal:'把臨時小組帶過高地'}})
-  else if(['inland','afternoon','evening'].includes(band))await npcPatch(m.id,{status:'與內陸盟軍重新建立編制聯絡',scene_key:'inland',state:{...(m.state||{}),goal:'重新接上指揮鏈'}})
+  else if(['inland','afternoon','evening'].includes(band))await npcPatch(m.id,{status:'與內陸盟軍重新建立編制聯絡',scene_key:'inland_hedgerow',state:{...(m.state||{}),goal:'重新接上指揮鏈'}})
  }
  const f=npcs.find(n=>n.npc_key==='foster')
  if(f&&f.status!=='死亡'){
-  if(to>=510){await npcPatch(f.id,{status:'在較高地帶處理大量傷兵',scene_key:'beach_aid',state:{...(f.state||{}),goal:'維持臨時救護點'}});openThread(w,'aid_station','臨時救護點','佛斯特開始在較高位置集中處理傷兵。',4)}
+  if(to>=510){await npcPatch(f.id,{status:'在較高地帶處理大量傷兵',scene_key:'omaha_high',state:{...(f.state||{}),goal:'維持臨時救護點'}});openThread(w,'aid_station','臨時救護點','佛斯特開始在較高位置集中處理傷兵。',4)}
  }
  const r=npcs.find(n=>n.npc_key==='reed')
  if(r&&r.status!=='死亡'&&!stBool(w,'engineer_breach')&&to>=465){
   w.engineer_breach=true
-  await npcPatch(r.id,{status:'完成一處障礙爆破後往上方撤離',scene_key:'shingle',state:{...(r.state||{}),goal:'尋找下一個工兵任務'}})
+  await npcPatch(r.id,{status:'完成一處障礙爆破後往上方撤離',scene_key:'omaha_shingle',state:{...(r.state||{}),goal:'尋找下一個工兵任務'}})
   notes.push('不在你視線中心的另一邊傳來爆炸。里德那組工兵終於炸開一處障礙，幾個原本被壓在水際的人立刻往缺口靠。');openThread(w,'reed_breach','里德的爆破缺口','一處工兵缺口已形成，但能使用多久未知。',5)
  }
  const c=npcs.find(n=>n.npc_key==='cole')
  if(c&&c.status!=='死亡'&&!c.state?.rescued&&to>=425){
-  await npcPatch(c.id,{status:'位置不明',scene_key:'unknown',state:{...(c.state||{}),missing:true}})
+  await npcPatch(c.id,{status:'位置不明',state:{...(c.state||{}),missing:true,location_known:false}})
   if(!w.cole_lost_noted){w.cole_lost_noted=true;notes.push('你再去找柯爾原本的位置時，那裡只剩被海水沖斜的背帶痕跡。有人把他拖走了，或他自己移動了；至少現在沒有人能直接告訴你答案。');openThread(w,'cole_missing','失去聯絡的柯爾','柯爾與 SCR-300 的位置變成未知。',6)}
  }
 }
@@ -454,7 +461,7 @@ function candidates(w:any,npcs:any[]){
 }
 
 
-function freshChoices(w:any,npcs:any[]){
+function freshChoices(w:any,npcs:any[],routes:any[]=[]){
  const b=worldBand(Number(w.time_min||387))
  const serial=Number(w.choice_serial||0)
  const usedKeys=new Set(w.choice_key_history||[])
@@ -462,11 +469,17 @@ function freshChoices(w:any,npcs:any[]){
  const add=(key:string,label:string,input:string)=>pool.push({key,label,input})
 
  const open=visibleThreads(w).filter((x:any)=>x.status==='open').sort((a:any,b:any)=>Number(b.pressure)-Number(a.pressure))
+ const sceneKey=legalScene(w.current_scene_key||w.location_scene_key||'normandy_open')
  const alive=npcs.filter((n:any)=>n.status!=='死亡')
- const survivors=alive.filter((n:any)=>n.state?.actor_type==='survivor'&&!n.state?.confirmed_by_player&&Number(n.state?.cover_adaptation||0)<65)
- const movers=alive.filter((n:any)=>/帶|移動|撤|尋找|處理|維持|集中|聯絡/.test(n.status||''))
- const nearbyHistorical=alive.filter((n:any)=>n.state?.actor_type==='historical')
+ const local=alive.filter((n:any)=>n.scene_key===sceneKey&&!n.state?.missing&&n.state?.location_known!==false)
+ const survivors=local.filter((n:any)=>n.state?.actor_type==='survivor'&&!n.state?.confirmed_by_player&&Number(n.state?.cover_adaptation||0)<65)
+ const movers=local.filter((n:any)=>/帶|移動|撤|尋找|處理|維持|集中|聯絡/.test(n.status||''))
+ const nearbyHistorical=local.filter((n:any)=>n.state?.actor_type==='historical')
 
+ for(const route of routes.slice(0,2)){
+  const key='route_'+String(route.from_scene_key)+'_'+String(route.to_scene_key)
+  add(key,String(route.label||'沿已知路線前進'),'我沿著「'+String(route.label||'已知路線')+'」往前，確認這條路線現在仍可通行。')
+ }
  if(b==='approach'){
   add('approach_fire','判斷岸上火力','我盯著艇首外的曳光和彈著，先判斷跳板放下後哪一側最容易被火力封死。')
   add('approach_mercer','問梅瑟集合方式','我靠近梅瑟中士，問清楚下艇後如果隊伍被打散，原本打算在哪裡重新集合。')
@@ -804,12 +817,13 @@ async function runAgentTurn(args:{
 
 async function payload(s:any){
  const scenarioKey=s.scenario_key||DEFAULT_SCENARIO,sceneKey=s.current_scene_key||'normandy_open'
- const [tr,nr,ir,mr,place]=await Promise.all([
+ const [tr,nr,ir,mr,place,routes]=await Promise.all([
   db.from('game_turns').select('*').eq('session_id',s.id).order('turn_no',{ascending:false}).limit(60),
   db.from('game_npc_states').select('*').eq('session_id',s.id).order('name'),
   db.from('game_inventory').select('*').eq('session_id',s.id).gt('quantity',0),
   db.from('game_memories').select('*').eq('session_id',s.id).order('importance',{ascending:false}).limit(20),
-  loadPlace(scenarioKey,sceneKey)
+  loadPlace(scenarioKey,sceneKey),
+  loadEnabledRoutes(scenarioKey,sceneKey)
  ])
  const w=s.world_state||{},npcs=(nr.data||[]).map(viewNpc)
  return{session:{
@@ -818,14 +832,14 @@ async function payload(s:any){
   scene_metadata:place?.metadata||{},turn_no:s.turn_no,hp:s.hp,stamina:s.stamina,focus:s.focus,time:w.time,danger:w.danger,
   objective:w.objective,progress:w.day_progress||0,stage:0,playerName:w.player?.name,ability:w.player?.ability,
   origin:'從盟軍登陸艇中的臨時補充兵開始；立場、忠誠與行動路線不鎖定。',worldBand:worldBand(w.time_min),worldBandLabel:({approach:'登陸前',beach_chaos:'灘頭混亂',breakout:'突破形成',highground:'高地與出口',inland:'樹籬與農道',afternoon:'內陸戰鬥',evening:'傍晚收束'} as any)[worldBand(w.time_min)]||worldBand(w.time_min),threads:visibleThreads(w)
- },turns:tr.data||[],npcs,inventory:ir.data||[],memories:mr.data||[],choices:(Array.isArray(w.offered_choices)&&w.offered_choices.length===4)?w.offered_choices:freshChoices(w,nr.data||[]),aiConfigured:!!(await getAIKey()),agentModels:{director:'GPT-5.6 Sol / high',narrator:'GPT-5.6 Sol / high',coding:'Codex CLI + ChatGPT 登入（Samsung/Hermes）',art:'GPT-Image-2'}}
+ },turns:tr.data||[],npcs,inventory:ir.data||[],memories:mr.data||[],choices:(Array.isArray(w.offered_choices)&&w.offered_choices.length===4)?w.offered_choices:freshChoices({...w,current_scene_key:sceneKey},nr.data||[],routes),aiConfigured:!!(await getAIKey()),agentModels:{director:'GPT-5.6 Sol / high',narrator:'GPT-5.6 Sol / high',coding:'Codex CLI + ChatGPT 登入（Samsung/Hermes）',art:'GPT-Image-2'}}
 }
 
 async function fresh(playerName:any){
  const name=cleanShort(playerName,60)||'無名者',ab=abilityFor(name),c=code(),t=token()
  const scenarioKey=DEFAULT_SCENARIO,scenario=await loadScenario(scenarioKey),startScene=scenario?.start_scene_key||'normandy_open'
  const w:any={
-  time_min:387,time:'06:27',danger:76,day_progress:0,
+  time_min:387,time:'06:27',danger:76,day_progress:0,current_scene_key:startScene,
   location:'奧馬哈海灘外海・Easy Red 前方登陸艇',
   objective:'最低條件只有活過今天。你要救誰、跟誰走、拿什麼、相信誰、是否服從命令，都由實際行動決定。',
   player:{name,ability:ab,placement:'allied_landing',alignment_locked:false},
@@ -838,12 +852,12 @@ async function fresh(playerName:any){
  if(error)throw error
  await Promise.all([
   db.from('game_npc_states').insert([
-   {session_id:s.id,npc_key:'mercer',name:'丹尼爾・梅瑟中士',scene_key:'boat',disposition:52,trust:24,tension:58,status:'確認登陸後集合方式',state:{actor_type:'historical',role:'班長',goal:'盡可能維持附近盟軍的組織',fear:'在灘頭失去全部指揮與人員',bottom_line:'不會故意把傷兵當誘餌',resource:'幾名願意聽他命令的士兵',alive:true}},
-   {session_id:s.id,npc_key:'foster',name:'伊萊・佛斯特醫護兵',scene_key:'boat',disposition:58,trust:20,tension:64,status:'檢查急救包與艇內暈船士兵',state:{actor_type:'historical',role:'醫護兵',goal:'救治仍有機會活下來的人',fear:'醫療物資耗盡',bottom_line:'不接受為了方便而放棄明顯可救的人',resource:'有限急救物資',alive:true}},
-   {session_id:s.id,npc_key:'reed',name:'湯瑪斯・里德工兵',scene_key:'boat',disposition:47,trust:16,tension:69,status:'保護爆破器材',state:{actor_type:'historical',role:'工兵',goal:'在灘頭建立可通行缺口',fear:'炸藥在抵達障礙前損失',bottom_line:'不會在人群仍貼著障礙時起爆',resource:'爆破器材',alive:true}},
-   {session_id:s.id,npc_key:'cole',name:'約瑟夫・柯爾通訊兵',scene_key:'boat',disposition:50,trust:14,tension:63,status:'保護 SCR-300 無線電',state:{actor_type:'historical',role:'通訊兵',goal:'維持有限通訊',alive:true}},
-   {session_id:s.id,npc_key:'linwei',name:'林蔚',scene_key:'boat',disposition:45,trust:8,tension:54,status:'沉默地觀察艇內其他人',state:{actor_type:'survivor',role:'補充兵',goal:'確認規則並活下來',alive:true,confirmed_by_player:false,cover_adaptation:16}},
-   {session_id:s.id,npc_key:'chenmo',name:'陳墨',scene_key:'boat',disposition:43,trust:7,tension:48,status:'反覆檢查不熟悉的裝備',state:{actor_type:'survivor',role:'補充兵',goal:'不先暴露身分',alive:true,confirmed_by_player:false,cover_adaptation:21}}
+   {session_id:s.id,npc_key:'mercer',name:'丹尼爾・梅瑟中士',scene_key:startScene,disposition:52,trust:24,tension:58,status:'確認登陸後集合方式',state:{actor_type:'historical',role:'班長',goal:'盡可能維持附近盟軍的組織',fear:'在灘頭失去全部指揮與人員',bottom_line:'不會故意把傷兵當誘餌',resource:'幾名願意聽他命令的士兵',alive:true}},
+   {session_id:s.id,npc_key:'foster',name:'伊萊・佛斯特醫護兵',scene_key:startScene,disposition:58,trust:20,tension:64,status:'檢查急救包與艇內暈船士兵',state:{actor_type:'historical',role:'醫護兵',goal:'救治仍有機會活下來的人',fear:'醫療物資耗盡',bottom_line:'不接受為了方便而放棄明顯可救的人',resource:'有限急救物資',alive:true}},
+   {session_id:s.id,npc_key:'reed',name:'湯瑪斯・里德工兵',scene_key:startScene,disposition:47,trust:16,tension:69,status:'保護爆破器材',state:{actor_type:'historical',role:'工兵',goal:'在灘頭建立可通行缺口',fear:'炸藥在抵達障礙前損失',bottom_line:'不會在人群仍貼著障礙時起爆',resource:'爆破器材',alive:true}},
+   {session_id:s.id,npc_key:'cole',name:'約瑟夫・柯爾通訊兵',scene_key:startScene,disposition:50,trust:14,tension:63,status:'保護 SCR-300 無線電',state:{actor_type:'historical',role:'通訊兵',goal:'維持有限通訊',alive:true}},
+   {session_id:s.id,npc_key:'linwei',name:'林蔚',scene_key:startScene,disposition:45,trust:8,tension:54,status:'沉默地觀察艇內其他人',state:{actor_type:'survivor',role:'補充兵',goal:'確認規則並活下來',alive:true,confirmed_by_player:false,cover_adaptation:16}},
+   {session_id:s.id,npc_key:'chenmo',name:'陳墨',scene_key:startScene,disposition:43,trust:7,tension:48,status:'反覆檢查不熟悉的裝備',state:{actor_type:'survivor',role:'補充兵',goal:'不先暴露身分',alive:true,confirmed_by_player:false,cover_adaptation:21}}
   ]),
   db.from('game_inventory').insert([
    {session_id:s.id,item_key:'m1',name:'M1 Garand 步槍',quantity:1,description:'標準步槍。'},
@@ -856,7 +870,8 @@ async function fresh(playerName:any){
   ])
  ])
  const {data:npcs=[]}=await db.from('game_npc_states').select('*').eq('session_id',s.id)
- w.offered_choices=freshChoices(w,npcs)
+ const routes=await loadEnabledRoutes(scenarioKey,startScene)
+ w.offered_choices=freshChoices(w,npcs,routes)
  rememberChoiceKeys(w,w.offered_choices)
  await db.from('game_sessions').update({world_state:w}).eq('id',s.id)
  const n=
@@ -891,6 +906,7 @@ async function act(s:any,input0:string,tags0:any[]){
  const mins=movement?.route?Number(movement.route.travel_minutes):actionMinutes(kind,input,tags)
  const from=Number(w.time_min||387),to=Math.min(1260,from+mins)
  const result=await resolveAction(s,w,npcs,input,kind,r,tags,movement)
+ w.current_scene_key=sceneAfterMovement(s,movement)
  const notes:string[]=[...result.paragraphs]
  notes.push(...historicalEvents(w,from,to))
  await tickNpcs(w,npcs,from,to,notes)
@@ -915,8 +931,9 @@ async function act(s:any,input0:string,tags0:any[]){
   result.short='第一日抵達結算時間，人物與事件後果保留下來。'
  }
  const {data:freshNpcs=[]}=await db.from('game_npc_states').select('*').eq('session_id',s.id)
+ const currentRoutes=await loadEnabledRoutes(s.scenario_key||DEFAULT_SCENARIO,w.current_scene_key)
  w.choice_serial=Number(w.choice_serial||0)+1
- const fallbackChoices=status==='active'?freshChoices(w,freshNpcs):[]
+ const fallbackChoices=status==='active'?freshChoices(w,freshNpcs,currentRoutes):[]
  const agents=await runAgentTurn({
   input,kind,w,npcs:freshNpcs,recent:recent||[],facts:notes,short:result.short,
   fallbackChoices,status,sessionId:s.id,turnNo:s.turn_no+1
@@ -942,7 +959,7 @@ async function act(s:any,input0:string,tags0:any[]){
 Deno.serve(async req=>{
  try{
   if(req.method==='OPTIONS')return new Response('ok',{headers:H})
-  if(req.method==='GET')return J({ok:true,service:'normandy-story-sandbox',version:8,message:'API online'})
+  if(req.method==='GET')return J({ok:true,service:'normandy-story-sandbox',apiVersion:1,engine:'rpg-world-graph',message:'API online'})
   if(req.method!=='POST')return J({error:'method'},405)
   const b=await req.json().catch(()=>({}))
   if(b.op==='new')return J(await fresh(b.playerName))
