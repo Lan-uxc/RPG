@@ -82,17 +82,29 @@ function viewNpc(n:any){
 }
 
 function ensureThreads(w:any){w.threads=w.threads||{};return w.threads}
+function threadTurn(w:any){return Number(w.current_turn||0)}
 function openThread(w:any,key:string,title:string,note:string,pressure=3){
  const t=ensureThreads(w)
- if(!t[key])t[key]={key,title,status:'open',pressure,notes:[note],created_at:w.time}
+ if(!t[key])t[key]={key,title,status:'open',pressure,notes:[note],created_at:w.time,created_turn:threadTurn(w)}
  else{t[key].notes=uniq([...(t[key].notes||[]),note]).slice(-5);t[key].pressure=Math.max(Number(t[key].pressure||0),pressure)}
 }
 function resolveThread(w:any,key:string,note:string,status='resolved'){
  const t=ensureThreads(w)
- if(!t[key])t[key]={key,title:key,status,pressure:0,notes:[note],created_at:w.time}
- else{t[key].status=status;t[key].notes=uniq([...(t[key].notes||[]),note]).slice(-5);t[key].pressure=0}
+ if(!t[key])t[key]={key,title:key,status,pressure:0,notes:[note],created_at:w.time,created_turn:threadTurn(w),resolved_turn:threadTurn(w)}
+ else{t[key].status=status;t[key].notes=uniq([...(t[key].notes||[]),note]).slice(-5);t[key].pressure=0;t[key].resolved_turn=threadTurn(w)}
 }
 function visibleThreads(w:any){return Object.values(w.threads||{}).filter((x:any)=>x.status==='open'||x.status==='resolved').slice(-8)}
+async function syncThreads(sessionId:string,w:any,turnNo:number){
+ const rows=Object.values(w.threads||{}).map((t:any)=>({
+  session_id:sessionId,thread_key:String(t.key),title:String(t.title||t.key),status:String(t.status||'open'),
+  pressure:Math.max(0,Math.min(10,Number(t.pressure||0))),notes:Array.isArray(t.notes)?t.notes:[],
+  state:{created_at:t.created_at||null},created_turn:Number(t.created_turn??turnNo),
+  resolved_turn:['resolved','failed','changed','superseded'].includes(t.status)?Number(t.resolved_turn??turnNo):null,
+  updated_at:new Date().toISOString()
+ }))
+ if(!rows.length)return
+ try{await db.from('game_threads').upsert(rows,{onConflict:'session_id,thread_key'})}catch{}
+}
 
 const timeline=[
  {id:'h_hour',at:390,text:'第一波登陸艇陸續放下跳板。海灘上的火力、障礙和混亂同時把原本的編制切碎。'},
@@ -116,8 +128,52 @@ function worldBand(min:number){
  if(min<1140)return'afternoon'
  return'evening'
 }
-function locationLabel(w:any){
- return w.location||'奧馬哈海灘外海'
+function locationLabel(w:any){return w.location||'奧馬哈海灘外海'}
+const DEFAULT_SCENARIO='normandy_1944'
+async function loadScenario(key:string){
+ const {data}=await db.from('game_scenarios').select('*').eq('scenario_key',key).eq('is_active',true).maybeSingle()
+ return data||null
+}
+async function loadPlace(scenarioKey:string,sceneKey:string){
+ const {data}=await db.from('game_places').select('*').eq('scenario_key',scenarioKey).eq('scene_key',sceneKey).maybeSingle()
+ return data||null
+}
+function routeWords(route:any){
+ const to=String(route.to_scene_key||'')
+ const aliases:any={
+  omaha_waterline:/靠岸|下艇|水際|海灘|障礙帶|登陸/,
+  omaha_shingle:/碎石|海堤|障礙帶|掩體/,
+  omaha_high:/高地|上坡|出口|峭壁/,
+  inland_hedgerow:/內陸|樹籬|農地|村|道路/,
+  normandy_open:/回船|登陸艇|外海/
+ }
+ return aliases[to]||new RegExp(String(route.label||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))
+}
+function chooseRoute(input:string,routes:any[]){
+ if(!routes.length)return null
+ const matched=routes.filter(r=>routeWords(r).test(input)||String(r.label||'').split('').some(x=>x.length>1&&input.includes(x)))
+ if(matched.length)return matched[0]
+ // A scene with exactly one enabled outgoing route may be traversed by a general move action,
+ // but an explicitly named unknown destination is never silently reinterpreted as that route.
+ if(/前往|去(?:往)?|到達|直奔|直接/.test(input))return null
+ return routes.length===1?routes[0]:null
+}
+async function resolveRoute(s:any,input:string){
+ const scenarioKey=s.scenario_key||DEFAULT_SCENARIO
+ const fromScene=s.current_scene_key||'normandy_open'
+ const {data}=await db.from('game_routes').select('*').eq('scenario_key',scenarioKey).eq('from_scene_key',fromScene).eq('is_enabled',true)
+ const route=chooseRoute(input,data||[])
+ if(!route)return{route:null,fromScene,reason:'目前沒有已知直接路線；你得先搜索、取得情報或改變眼前條件。'}
+ const place=await loadPlace(scenarioKey,route.to_scene_key)
+ if(!place)return{route:null,fromScene,reason:'這條路線的目的地資訊尚未可用，不能冒然穿越。'}
+ return{route,place,fromScene}
+}
+function sceneAfterMovement(s:any,movement:any){return movement?.route?.to_scene_key||s.current_scene_key||'normandy_open'}
+function applyMovement(w:any,movement:any){
+ if(!movement?.route||!movement?.place)return false
+ w.location=movement.place.name
+ w.location_scene_key=movement.route.to_scene_key
+ return true
 }
 
 function parse(input:string){
@@ -201,20 +257,7 @@ async function tickNpcs(w:any,npcs:any[],from:number,to:number,notes:string[]){
 }
 function stBool(w:any,k:string){return !!w[k]}
 
-function applyMovement(w:any,input:string,band:string){
- const old=w.location
- if(/海堤|碎石|高地|上坡|峭壁/.test(input))w.location='奧馬哈海灘・海堤與高地下方'
- else if(/內陸|樹籬|農地|科勒維爾|村|道路/.test(input))w.location='諾曼第內陸・樹籬與農道'
- else if(/海灘|水際|登陸艇/.test(input))w.location='奧馬哈海灘・水際與障礙帶'
- else if(/後退|回船/.test(input))w.location='奧馬哈海灘・水際後方'
- else if(band==='approach')w.location='奧馬哈海灘外海・登陸艇'
- else if(['beach_chaos','breakout'].includes(band))w.location=old||'奧馬哈海灘・障礙帶'
- else if(band==='highground')w.location='奧馬哈海灘・高地與出口周邊'
- else w.location='諾曼第內陸・零散盟軍活動區'
- return old!==w.location
-}
-
-async function resolveAction(s:any,w:any,npcs:any[],input:string,kind:string,r:number,tags:string[]=[]){
+async function resolveAction(s:any,w:any,npcs:any[],input:string,kind:string,r:number,tags:string[]=[],movement:any=null){
  let hp=s.hp,st=s.stamina,fo=s.focus,danger=Number(w.danger||70),short='',importance=5
  const p:string[]=[]
  const target=namedTarget(input,npcs)
@@ -265,13 +308,14 @@ async function resolveAction(s:any,w:any,npcs:any[],input:string,kind:string,r:n
   }
  }else if(kind==='follow'){
   const t=target||npcs.find(n=>n.status!=='死亡'&&/帶|移動|撤|尋找/.test(n.status))
+  const moved=applyMovement(w,movement)
   if(t){
    p.push('你沒有叫住'+t.name+'，只是保持能看見他的距離跟上。這讓你看到的不是一段對話，而是他真正正在做的事。')
    if(t.state?.goal)p.push('他的路線和停頓都指向同一個目的：'+t.state.goal+'。')
-   applyMovement(w,'往前跟上',band);short='跟蹤人物讓你離開原來位置，並取得行動意圖。';importance=7
+   short=moved?'你跟著人物沿已知路線進入'+movement.place.name+'，並取得行動意圖。':'跟蹤沒有提供可確認的路線；'+(movement?.reason||'你暫時仍在原場景。');importance=7
   }else{
-   p.push('你想找一個正在主動移動的人跟上，但煙、地形和人群把視線切斷。你最後跟上的是另一組正在往較高位置移動的盟軍。')
-   applyMovement(w,'往高地',band);short='原目標跟丟，但你跟上另一支移動中的盟軍小組。'
+   p.push(moved?'你最後跟上另一組正在移動的盟軍，沿已知路線離開原來位置。':'煙、地形和人群把視線切斷；'+(movement?.reason||'你沒有因此穿越到未知地點。'))
+   short=moved?'你跟上另一支盟軍小組，位置實際改變。':'原目標跟丟，且沒有可確認的直接路線。'
   }
  }else if(kind==='radio'){
   if(target?.npc_key==='cole'&&!target.state?.missing){
@@ -310,10 +354,15 @@ async function resolveAction(s:any,w:any,npcs:any[],input:string,kind:string,r:n
   p.push(obs[r%obs.length]);if(method==='搜索'||method==='觀察'){p.push('你把注意力集中在可驗證的細節上，留下了一條之後能回頭利用的線索。');w.last_observation={at:w.time,method,clue:'已辨認一個可利用的局勢差異'};importance=6}
   short=method==='搜索'||method==='觀察'?'你取得可回頭驗證的局部情報。':'觀察沒有停止世界，但讓你辨認出一個新的局勢差異。'
  }else if(kind==='move'){
-  const moved=applyMovement(w,input,band);st=clamp(st-5);danger=clamp(danger+(moved?(method==='移動'?1:3):0))
-  p.push(moved?'你沒有沿固定路線移動。每一段都是等火力、煙或人群位置改變後才換下一個遮蔽。':'你試著照自己的方向移動，但地形和火力把路線擠回附近區域。')
-  if(method==='移動')p.push('你把移動拆成短距離的可行路段，少暴露了一點，但沒有跳過地形與火力。')
-  short=moved?'你的位置實際改變，新的環境取代原來場景。':'移動沒有抵達原先想像的位置，但你所在的小區域已改變。'
+  const moved=applyMovement(w,movement);st=clamp(st-5);danger=clamp(danger+(moved?(method==='移動'?1:3):0))
+  if(moved){
+   p.push('你沒有瞬間跨過地形。你沿著「'+(movement.route.label||'已知路線')+'」一段段穿過遮蔽與火力空檔，最後進入'+movement.place.name+'。')
+   if(method==='移動')p.push('你把移動拆成短距離的可行路段，少暴露了一點，但沒有跳過地形與火力。')
+   short='你沿已知路線抵達'+movement.place.name+'。'
+  }else{
+   p.push(movement?.reason||'目前沒有已知直接路線；你不能靠一句話瞬間穿越到目的地。')
+   short='移動沒有成立，位置維持在目前場景。'
+  }
  }else if(kind==='wait'){
   if(method==='休息'){st=clamp(st+7);fo=clamp(fo+4);danger=clamp(danger+2);p.push('你用短暫休息恢復呼吸與手腳的穩定，但戰場沒有替你停下。')}
   else p.push('你沒有主動介入眼前任何一條線。等待並不讓世界暫停；你只是把主動權交給其他人和時間。')
@@ -754,17 +803,19 @@ async function runAgentTurn(args:{
 }
 
 async function payload(s:any){
- const [tr,nr,ir,mr]=await Promise.all([
+ const scenarioKey=s.scenario_key||DEFAULT_SCENARIO,sceneKey=s.current_scene_key||'normandy_open'
+ const [tr,nr,ir,mr,place]=await Promise.all([
   db.from('game_turns').select('*').eq('session_id',s.id).order('turn_no',{ascending:false}).limit(60),
   db.from('game_npc_states').select('*').eq('session_id',s.id).order('name'),
   db.from('game_inventory').select('*').eq('session_id',s.id).gt('quantity',0),
-  db.from('game_memories').select('*').eq('session_id',s.id).order('importance',{ascending:false}).limit(20)
+  db.from('game_memories').select('*').eq('session_id',s.id).order('importance',{ascending:false}).limit(20),
+  loadPlace(scenarioKey,sceneKey)
  ])
  const w=s.world_state||{},npcs=(nr.data||[]).map(viewNpc)
  return{session:{
-  session_code:s.session_code,title:s.title,status:s.status,current_scene_key:'normandy_open',
-  scene_name:locationLabel(w),scene_desc:'1944 年 6 月 6 日，奧馬哈灘頭與其內陸正在持續演變。',
-  turn_no:s.turn_no,hp:s.hp,stamina:s.stamina,focus:s.focus,time:w.time,danger:w.danger,
+  session_code:s.session_code,title:s.title,status:s.status,current_scene_key:sceneKey,
+  scene_name:place?.name||locationLabel(w),scene_desc:place?.description||'1944 年 6 月 6 日，奧馬哈灘頭與其內陸正在持續演變。',
+  scene_metadata:place?.metadata||{},turn_no:s.turn_no,hp:s.hp,stamina:s.stamina,focus:s.focus,time:w.time,danger:w.danger,
   objective:w.objective,progress:w.day_progress||0,stage:0,playerName:w.player?.name,ability:w.player?.ability,
   origin:'從盟軍登陸艇中的臨時補充兵開始；立場、忠誠與行動路線不鎖定。',worldBand:worldBand(w.time_min),worldBandLabel:({approach:'登陸前',beach_chaos:'灘頭混亂',breakout:'突破形成',highground:'高地與出口',inland:'樹籬與農道',afternoon:'內陸戰鬥',evening:'傍晚收束'} as any)[worldBand(w.time_min)]||worldBand(w.time_min),threads:visibleThreads(w)
  },turns:tr.data||[],npcs,inventory:ir.data||[],memories:mr.data||[],choices:(Array.isArray(w.offered_choices)&&w.offered_choices.length===4)?w.offered_choices:freshChoices(w,nr.data||[]),aiConfigured:!!(await getAIKey()),agentModels:{director:'GPT-5.6 Sol / high',narrator:'GPT-5.6 Sol / high',coding:'Codex CLI + ChatGPT 登入（Samsung/Hermes）',art:'GPT-Image-2'}}
@@ -772,6 +823,7 @@ async function payload(s:any){
 
 async function fresh(playerName:any){
  const name=cleanShort(playerName,60)||'無名者',ab=abilityFor(name),c=code(),t=token()
+ const scenarioKey=DEFAULT_SCENARIO,scenario=await loadScenario(scenarioKey),startScene=scenario?.start_scene_key||'normandy_open'
  const w:any={
   time_min:387,time:'06:27',danger:76,day_progress:0,
   location:'奧馬哈海灘外海・Easy Red 前方登陸艇',
@@ -781,7 +833,7 @@ async function fresh(playerName:any){
   converted:[],engineer_breach:false,radio_known:false
  }
  const {data:s,error}=await db.from('game_sessions').insert({
-  session_code:c,access_token_hash:await sha(t),title:'歷史沙盒 II：諾曼第 1944',current_scene_key:'normandy_open',world_state:w
+  session_code:c,access_token_hash:await sha(t),title:'歷史沙盒 II：諾曼第 1944',scenario_key:scenarioKey,current_scene_key:startScene,world_state:w
  }).select('*').single()
  if(error)throw error
  await Promise.all([
@@ -818,7 +870,7 @@ async function fresh(playerName:any){
  '另外兩名補充兵比較奇怪。林蔚一直看別人的手腕；陳墨穿裝備的順序不像受過同一套訓練。但這些都只是線索，不是證明。\n\n'+
  '岸上的炮火聲越來越近。\n\n'+
  '沒有人知道你接下來會做什麼。'
- await db.from('game_turns').insert({session_id:s.id,turn_no:0,player_input:'（開始）',intent:'opening',resolution:{shortResult:'登陸艇距離 H-Hour 只剩幾分鐘。'},narrative:n,scene_key:'normandy_open'})
+ await db.from('game_turns').insert({session_id:s.id,turn_no:0,player_input:'（開始）',intent:'opening',resolution:{shortResult:'登陸艇距離 H-Hour 只剩幾分鐘。'},narrative:n,scene_key:startScene})
  return{accessToken:t,state:await payload({...s,world_state:w})}
 }
 
@@ -833,9 +885,12 @@ async function act(s:any,input0:string,tags0:any[]){
  const oldChoices=w.offered_choices||[]
  w.choice_history=uniq([...(w.choice_history||[]),...oldChoices.map((x:any)=>x.input)]).slice(-100)
  w.offered_choices=[]
- const kind=actionKind(input,tags,w.player?.ability),r=roll(s.id+'|'+String(s.turn_no+1)+'|'+input),mins=actionMinutes(kind,input,tags)
+ const kind=actionKind(input,tags,w.player?.ability),r=roll(s.id+'|'+String(s.turn_no+1)+'|'+input)
+ w.current_turn=s.turn_no+1
+ const movement=(kind==='move'||kind==='follow')?await resolveRoute(s,input):null
+ const mins=movement?.route?Number(movement.route.travel_minutes):actionMinutes(kind,input,tags)
  const from=Number(w.time_min||387),to=Math.min(1260,from+mins)
- const result=await resolveAction(s,w,npcs,input,kind,r,tags)
+ const result=await resolveAction(s,w,npcs,input,kind,r,tags,movement)
  const notes:string[]=[...result.paragraphs]
  notes.push(...historicalEvents(w,from,to))
  await tickNpcs(w,npcs,from,to,notes)
@@ -873,12 +928,13 @@ async function act(s:any,input0:string,tags0:any[]){
  const next=s.turn_no+1
  const res={intent:kind,outcome:status==='failed'?'failure':'resolved',roll:r,tags:Array.isArray(tags)?tags.slice(0,3):[],shortResult:result.short,timeCost:mins,worldBand:worldBand(to),aiUsed:!!agents.narrator,aiModel:agents.narrator?.model||null,directorUsed:!!agents.director}
  const {data:u,error}=await db.from('game_sessions').update({
-  turn_no:next,hp:result.hp,stamina:result.st,focus:result.fo,status,world_state:w,
+  turn_no:next,hp:result.hp,stamina:result.st,focus:result.fo,status,current_scene_key:sceneAfterMovement(s,movement),world_state:w,
   summary:((s.summary||'')+' '+next+'：'+input.slice(0,55)+' → '+result.short).slice(-2500),
   updated_at:new Date().toISOString(),last_played_at:new Date().toISOString()
  }).eq('id',s.id).select('*').single()
  if(error)throw error
- await db.from('game_turns').insert({session_id:s.id,turn_no:next,player_input:input,intent:kind,resolution:res,narrative,scene_key:'normandy_open'})
+ await db.from('game_turns').insert({session_id:s.id,turn_no:next,player_input:input,intent:kind,resolution:res,narrative,scene_key:u.current_scene_key})
+ await syncThreads(s.id,w,next)
  if(result.importance>=7)await db.from('game_memories').insert({session_id:s.id,scope:'world',subject_key:'normandy',content:result.short,importance:result.importance,tags:[kind]})
  return payload(u)
 }
