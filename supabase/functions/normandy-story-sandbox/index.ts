@@ -579,27 +579,29 @@ function npcConflictBeat(w:any,npcs:any[],r:number){
  return beats.slice(0,1)
 }
 
+const OPENROUTER_ENDPOINT='https://openrouter.ai/api/v1/chat/completions'
+const OPENROUTER_DIRECTOR_MODEL='qwen/qwen3.8-27b:free'
+const OPENROUTER_NARRATOR_MODEL='qwen/qwen3.8-27b:free'
 let AI_KEY_CACHE:string|null=null
 let AI_KEY_CACHE_AT=0
 
 async function getAIKey(){
  const now=Date.now()
  if(AI_KEY_CACHE!==null&&now-AI_KEY_CACHE_AT<60000)return AI_KEY_CACHE
- const {data,error}=await db.rpc('game_ai_secret_get',{p_name:'GAME_OPENAI_API_KEY'})
+ const {data,error}=await db.rpc('game_ai_secret_get',{p_name:'GAME_OPENROUTER_API_KEY'})
  AI_KEY_CACHE_AT=now
  AI_KEY_CACHE=!error&&typeof data==='string'&&data.length>10?data:''
  return AI_KEY_CACHE
 }
 
-function responseText(data:any){
- for(const item of data?.output||[]){
-  if(item?.type==='message'){
-   for(const c of item.content||[]){
-    if(c?.type==='output_text'&&typeof c.text==='string')return c.text
-   }
-  }
- }
- return ''
+async function openRouterChat(key:string,body:any){
+ const format=body?.text?.format
+ const rr=await fetch(OPENROUTER_ENDPOINT,{method:'POST',headers:{authorization:'Bearer '+key,'content-type':'application/json','http-referer':'https://github.com/Lan-uxc/RPG','x-title':'RPG'},body:JSON.stringify({model:body.model,messages:body.input,response_format:format?{type:'json_schema',json_schema:{name:format.name,strict:true,schema:format.schema}}:undefined,max_tokens:body.max_output_tokens||1200})})
+ const data=await rr.json().catch(()=>({}))
+ if(!rr.ok){console.error('OpenRouter response error',rr.status,data?.error?.message||'unknown');return null}
+ const text=data?.choices?.[0]?.message?.content
+ const raw=typeof text==='string'?text:Array.isArray(text)?text.map((x:any)=>x?.text||'').join(''):''
+ try{return raw?JSON.parse(raw):null}catch{return null}
 }
 
 function compactNpc(n:any){
@@ -683,8 +685,8 @@ async function runDirectorAgent(args:{
   'choice_axes 固定給四個彼此不同且當下可行的方向：人物、移動／位置、情報／觀察、資源／救援／戰術；需符合 route 與 scene。',
   'pacing 只能是 quiet、tense、urgent、combat、aftermath。continuity_note 是下一回合短備忘，不得把尚未發生的事寫成既定事實。'
  ].join('\n')
- return await openAIResponse(key,{
-  model:'gpt-5.6-sol',
+ return await openRouterChat(key,{
+  model:OPENROUTER_DIRECTOR_MODEL,
   reasoning:{effort:'high'},
   store:false,
   max_output_tokens:1200,
@@ -769,8 +771,8 @@ async function runNarratorAgent(args:{
   '4. 禁止重複 forbidden_choice_text，也不要只做同義改寫。',
   '5. 選項不是成功保證，只是角色可以嘗試的行動。'
  ].join('\n')
- const parsed=await openAIResponse(key,{
-  model:'gpt-5.6-sol',
+ const parsed=await openRouterChat(key,{
+  model:OPENROUTER_NARRATOR_MODEL,
   reasoning:{effort:'high'},
   store:false,
   max_output_tokens:3000,
@@ -780,16 +782,18 @@ async function runNarratorAgent(args:{
   ],
   text:{verbosity:'medium',format:{type:'json_schema',name:'novel_turn',strict:true,schema}}
  })
- if(!parsed?.narrative||!Array.isArray(parsed.choices)||parsed.choices.length!==4)return null
- const normalized=parsed.choices.map((x:any,i:number)=>({
-  key:'sol_'+String(args.w.choice_serial||0)+'_'+String(i)+'_'+String(hash(String(x.input||''))%100000),
-  label:String(x.label||'行動').slice(0,24),
-  input:String(x.input||'').slice(0,320)
- }))
- if(normalized.some((x:any)=>!x.input))return null
- const semantic=new Set(normalized.map((x:any)=>choiceSemanticKey(x))),axes=new Set(normalized.map((x:any)=>actionKind(x.input,[],args.w.player?.ability)))
- if(semantic.size<4||axes.size<3)return null
- return{narrative:String(parsed.narrative).trim(),choices:normalized,scene_summary:String(parsed.scene_summary||'').slice(0,360),mission_updates:Array.isArray(parsed.mission_updates)?parsed.mission_updates.map((x:any)=>String(x).slice(0,240)).slice(0,4):[],model:'gpt-5.6-sol'}
+ if(!parsed?.narrative)return null
+ let normalized:any[]=[]
+ if(Array.isArray(parsed.choices)&&parsed.choices.length===4){
+  const candidate=parsed.choices.map((x:any,i:number)=>({
+   key:'sol_'+String(args.w.choice_serial||0)+'_'+String(i)+'_'+String(hash(String(x.input||''))%100000),
+   label:String(x.label||'行動').slice(0,24),
+   input:String(x.input||'').slice(0,320)
+  }))
+  const semantic=new Set(candidate.map((x:any)=>choiceSemanticKey(x))),axes=new Set(candidate.map((x:any)=>actionKind(x.input,[],args.w.player?.ability)))
+  if(!candidate.some((x:any)=>!x.input)&&!(semantic.size<4||axes.size<3))normalized=candidate
+ }
+ return{narrative:String(parsed.narrative).trim(),choices:normalized,scene_summary:String(parsed.scene_summary||'').slice(0,360),mission_updates:Array.isArray(parsed.mission_updates)?parsed.mission_updates.map((x:any)=>String(x).slice(0,240)).slice(0,4):[],model:OPENROUTER_NARRATOR_MODEL}
 }
 
 async function writeAgentRun(sessionId:string|undefined,turnNo:number|undefined,role:string,model:string,reasoning:string,status:string,inputSummary:string,outputSummary:string,metadata:any={}){
@@ -821,14 +825,14 @@ async function runAgentTurn(args:{
 }){
  const director=await runDirectorAgent(args)
  await writeAgentRun(
-  args.sessionId,args.turnNo,'director','gpt-5.6-sol','high',
+  args.sessionId,args.turnNo,'director',OPENROUTER_DIRECTOR_MODEL,'high',
   director?'completed':'fallback',
   args.input,
   director?JSON.stringify(director):'Director unavailable; deterministic rules retained.'
  )
  const narrator=await runNarratorAgent({...args,director})
  await writeAgentRun(
-  args.sessionId,args.turnNo,'narrator','gpt-5.6-sol','high',
+  args.sessionId,args.turnNo,'narrator',OPENROUTER_NARRATOR_MODEL,'high',
   narrator?'completed':'fallback',
   args.short,
   narrator?.narrative||'Narrator unavailable; deterministic narrative used.',
@@ -854,7 +858,7 @@ async function payload(s:any){
   scene_metadata:place?.metadata||{},scene_summary:w.narrative_scene_summary||'',mission_updates:w.narrative_mission_updates||[],turn_no:s.turn_no,hp:s.hp,stamina:s.stamina,focus:s.focus,time:w.time,danger:w.danger,
   objective:w.objective,progress:w.day_progress||0,stage:0,playerName:w.player?.name,ability:w.player?.ability,
   origin:'從盟軍登陸艇中的臨時補充兵開始；立場、忠誠與行動路線不鎖定。',worldBand:worldBand(w.time_min),worldBandLabel:({approach:'登陸前',beach_chaos:'灘頭混亂',breakout:'突破形成',highground:'高地與出口',inland:'樹籬與農道',afternoon:'內陸戰鬥',evening:'傍晚收束'} as any)[worldBand(w.time_min)]||worldBand(w.time_min),threads:visibleThreads(w)
- },turns:tr.data||[],npcs,inventory:ir.data||[],memories:mr.data||[],choices:(Array.isArray(w.offered_choices)&&w.offered_choices.length===4)?w.offered_choices:freshChoices({...w,current_scene_key:sceneKey},nr.data||[],routes),aiConfigured:!!(await getAIKey()),agentModels:{director:'GPT-5.6 Sol / high',narrator:'GPT-5.6 Sol / high',coding:'Codex CLI + ChatGPT 登入（Samsung/Hermes）',art:'GPT-Image-2'}}
+ },turns:tr.data||[],npcs,inventory:ir.data||[],memories:mr.data||[],choices:(Array.isArray(w.offered_choices)&&w.offered_choices.length===4)?w.offered_choices:freshChoices({...w,current_scene_key:sceneKey},nr.data||[],routes),aiConfigured:!!(await getAIKey()),agentModels:{director:'OpenRouter / '+OPENROUTER_DIRECTOR_MODEL,narrator:'OpenRouter / '+OPENROUTER_NARRATOR_MODEL,coding:'Codex CLI + ChatGPT 登入（Samsung/Hermes）',art:'GPT-Image-2'}}
 }
 
 async function fresh(playerName:any){

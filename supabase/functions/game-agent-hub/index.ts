@@ -106,12 +106,12 @@ Deno.serve(async req=>{
  try{
   if(req.method==='OPTIONS')return new Response('ok',{headers:CORS})
   if(req.method==='GET'){
-   const key=await secret('GAME_OPENAI_API_KEY')
+   const key=await secret('GAME_OPENROUTER_API_KEY')
    return J({
     ok:true,configured:!!key,
     agents:{
-     director:{model:'gpt-5.6-sol',reasoning:'high'},
-     narrator:{model:'gpt-5.6-sol',reasoning:'high'},
+     director:{provider:'OpenRouter',model:'qwen/qwen3.8-27b:free'},
+     narrator:{provider:'OpenRouter',model:'qwen/qwen3.8-27b:free'},
      coding:{model:'Codex CLI',auth:'ChatGPT sign-in',scope:'external-hermes-maintenance',billing:'ChatGPT plan usage'},
      art:{model:'gpt-image-2',scope:'on-demand'}
     }
