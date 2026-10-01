@@ -22,9 +22,9 @@ Primary Edge Functions mirrored in this repository:
 Target mode:
 - Samsung phone
 - Hermes Agent
-- Codex CLI
-- Sign in with ChatGPT
-- No OpenAI coding API route
+- Hermes 內建 OpenAI Codex provider
+- OpenAI Codex OAuth
+- No separate Codex CLI and no OpenAI coding API route
 
 The Samsung phone has **not yet cloned this repository**. First-time local setup still needs to be done when the phone is available.
 
@@ -36,4 +36,4 @@ Live player data remains only in Supabase and is intentionally excluded from Git
 
 Director / Narrator API integration exists in backend source but requires an explicitly configured OpenAI API key. If no key is configured, deterministic fallback remains active.
 
-Art generation is also API-dependent and should be treated separately from Codex CLI maintenance.
+Art generation is also API-dependent and should be treated separately from Hermes 內建 OpenAI Codex provider maintenance.
