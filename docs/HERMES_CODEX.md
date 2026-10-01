@@ -1,4 +1,4 @@
-# Samsung / Hermes / Codex CLI
+# Samsung / Hermes / Codex OAuth
 
 ## Goal
 
@@ -11,7 +11,7 @@ Hermes
   ↓
 local RPG git checkout
   ↓
-Codex CLI
+Hermes 內建 OpenAI Codex provider
   ↓
 tests / diff / commit
   ↓
@@ -27,8 +27,8 @@ When the Samsung phone is physically available:
 1. Prepare Termux / Hermes.
 2. Install Git.
 3. Clone this repository.
-4. Install official Codex CLI where supported.
-5. Run Codex once and choose Sign in with ChatGPT.
+4. Install official Hermes 內建 OpenAI Codex provider where supported.
+5. Run Codex once and choose OpenAI Codex OAuth.
 6. Confirm Codex can read this repository.
 7. Keep credentials local; never commit them.
 
