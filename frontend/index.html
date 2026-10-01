@@ -79,6 +79,7 @@ details{margin-left:74px;margin-top:7px}summary{cursor:pointer;font-size:10px;co
 .startbox h1{font-size:23px;margin:0 0 10px}.startbox p{font-size:12px;line-height:1.75;color:var(--muted)}.startbtn{width:100%;padding:13px;border:0;border-radius:9px;background:var(--accent);color:var(--bg);font-weight:700}
 .hidden{display:none!important}
 @media(max-width:820px){
+  .hub{grid-template-columns:1fr}.identitycard{position:static}.hubgrid{grid-template-columns:repeat(2,1fr)}.bloodgrid{grid-template-columns:1fr 1fr}.briefmodal{grid-template-columns:1fr}
   .app{padding:0}.shell{border:0;border-radius:0;min-height:100vh}.topbar{padding:9px 10px;min-height:55px}.gameid{min-width:0}.gamename{font-size:12px}.grade{font-size:9px}
   .topbtn{padding:7px 8px}.topbtn small{display:none}.topactions{gap:5px}.iconbtn{width:34px;height:34px}
   .navrow{padding:7px 9px}.navbtn{padding:7px 10px}.turnstrip{padding:6px 10px}.thinprog{min-width:100px}
@@ -90,7 +91,7 @@ details{margin-left:74px;margin-top:7px}summary{cursor:pointer;font-size:10px;co
   .topbtn .label2{display:none}.cards{grid-template-columns:1fr}.actioncard{min-height:74px}.turnmeta{display:none}.thinprog{min-width:70px}.main{padding-top:16px}
 }
 
-.setupbox{width:min(520px,94vw);background:var(--panel);border:1px solid var(--line2);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.hub{max-width:1220px;margin:0 auto;display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px}.hubside,.hubmain{min-width:0}.identitycard,.trialhero,.hubtile{border:1px solid var(--line2);background:var(--panel);box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}.identitycard{padding:20px;position:sticky;top:14px}.hubeyebrow{font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--signal);letter-spacing:.14em}.hubname{font:600 23px "Noto Serif TC",serif;margin:9px 0 4px}.hubid{font:10px ui-monospace;color:var(--faint);padding-bottom:16px;border-bottom:1px solid var(--line)}.statstack{margin:16px 0}.hubstat{padding:10px 0;border-bottom:1px solid var(--line);font-size:10px;color:var(--muted)}.hubstat b{float:right;color:var(--text);font:600 13px ui-monospace}.statuslist{font-size:10px;line-height:1.8;color:var(--muted)}.trialhero{min-height:190px;padding:24px;display:flex;flex-direction:column;justify-content:flex-end;background:linear-gradient(135deg,#111 0%,#080808 65%,#15120b 100%)}.trialhero h1{font:500 29px "Noto Serif TC",serif;margin:8px 0}.trialhero p{max-width:690px;color:var(--muted);font-size:12px;line-height:1.8;margin:0}.hubactions{display:flex;gap:9px;margin-top:18px}.hubprimary,.hubsecondary{border:1px solid var(--signal);background:var(--signal);color:#080808;padding:11px 16px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer}.hubsecondary{background:transparent;color:var(--text);border-color:var(--line2)}.hubgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}.hubtile{text-align:left;padding:15px;min-height:118px;cursor:pointer;transition:.16s ease}.hubtile:hover{border-color:var(--signal);transform:translateY(-2px);background:var(--panel2)}.tileicon{color:var(--signal);font-size:20px}.hubtile b{display:block;margin-top:16px;font-size:13px}.hubtile span{display:block;margin-top:5px;font-size:10px;color:var(--muted);line-height:1.5}.briefmodal{display:grid;grid-template-columns:1fr 1fr;gap:10px}.briefsection{border:1px solid var(--line);padding:14px;background:var(--panel2)}.briefsection h3{margin:0 0 8px;font-size:12px;color:var(--signal)}.briefsection p{font-size:11px;color:var(--muted);line-height:1.8;margin:0}.shophead{display:flex;align-items:center;gap:10px;margin-bottom:12px}.shopscore{margin-left:auto;color:var(--signal);font:600 15px ui-monospace}.bloodgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.bloodcard{border:1px solid var(--line2);background:var(--panel2);padding:14px;min-height:180px}.bloodcard .rank{color:var(--signal);font:10px ui-monospace}.bloodcard h3{margin:9px 0;font-size:14px}.bloodcard p{font-size:10px;color:var(--muted);line-height:1.65}.bloodcard button{margin-top:9px;width:100%;border:1px solid var(--line2);background:#17140d;color:var(--signal);padding:8px;cursor:pointer}.hub.hidden{display:none!important}
 .setuphead{padding:22px 24px;border-bottom:1px solid var(--line)}
 .setupeyebrow{font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--signal);letter-spacing:.12em;margin-bottom:8px}
 .setuphead h1{font-size:24px;font-weight:500;margin:0}.setupbody{padding:22px 24px}.setupbody p{font-size:12px;line-height:1.8;color:var(--muted);margin:0 0 16px}
@@ -117,7 +118,7 @@ html[data-theme="light"] .abilitycard{background:#f1eadc}
     <button class="topbtn" onclick="openPanel('world')"><span>檢查世界狀態</span><small>狀態與進度</small></button>
     <button class="topbtn" onclick="openPanel('history')"><span>▣</span><span>回合紀錄</span></button>
     <button class="iconbtn" onclick="toggleTheme()" title="切換主題">☼</button>
-    <button class="iconbtn" onclick="newGame()" title="新試煉">⌂</button>
+    <button class="iconbtn" onclick="showHub()" title="主神大廳">⌂</button>
    </div>
   </header>
   <nav class="navrow">
@@ -136,6 +137,7 @@ html[data-theme="light"] .abilitycard{background:#f1eadc}
    <div class="spacer"></div>
   </div>
   <main class="main">
+   <section class="hub hidden" id="hubView"></section>
    <section class="worldbrief" id="worldBrief"></section>
    <section class="inlineMissions" id="inlineMissions"></section>
    <div class="narrative" id="narrative"></div>
@@ -230,8 +232,8 @@ async function createCharacter(){
   $('revealActivation').textContent=a.activation||'—';$('revealLimit').textContent=a.limit||'—';$('revealCost').textContent=a.cost||'—';
  }catch(e){alert(e.message);$('createBtn').disabled=false;$('createBtn').textContent='建立角色並生成能力'}
 }
-function enterStory(){$('startBack').classList.add('hidden');render()}
-async function resume(){const c=localStorage.getItem(C),t=localStorage.getItem(T);if(!c||!t)return;try{const d=await call({op:'load',sessionCode:c,accessToken:t});S=d.state;$('startBack').classList.add('hidden');render()}catch(e){localStorage.removeItem(C);localStorage.removeItem(T)}}
+function enterStory(){$('startBack').classList.add('hidden');showHub()}
+async function resume(){const c=localStorage.getItem(C),t=localStorage.getItem(T);if(!c||!t)return;try{const d=await call({op:'load',sessionCode:c,accessToken:t});S=d.state;$('startBack').classList.add('hidden');showHub()}catch(e){localStorage.removeItem(C);localStorage.removeItem(T)}}
 async function act(v){v=(v||$('input').value).trim();if(!v||!S||BUSY||S.session.status!=='active')return;try{setBusy(true);$('input').value='';updateCount();const d=await call({op:'act',sessionCode:localStorage.getItem(C),accessToken:localStorage.getItem(T),input:v,tags:SELECTED});S=d.state;SELECTED=[];render();window.scrollTo({top:0,behavior:'smooth'})}catch(e){alert(e.message)}finally{setBusy(false)}}
 function quick(i){if(Q[i])act(Q[i].input)}
 function updateCount(){$('counter').textContent=$('input').value.length+'/600'}
@@ -256,6 +258,15 @@ function renderInlineMissions(){
  const side=threads.length?threads.map(t=>'<article class="missioncard"><b>支線｜'+esc(t.title||t.key)+'</b><span>'+esc((t.notes||[]).slice(-1)[0]||'事件正在演變')+'</span></article>').join(''):'<article class="missioncard"><b>支線｜尚未觸發</b><span>人物、情報與資源事件會隨你的實際行動出現。</span></article>'
  $('inlineMissions').innerHTML='<div class="missionhead">MISSIONS / 任務</div><div class="missiongrid">'+main+side+'</div>'
 }
+function renderHub(){
+ const s=S.session,open=(s.threads||[]).filter(t=>t.status==='open').length,points=(S.inventory||[]).reduce((a,x)=>a+Number(x.quantity||0),0)
+ const tiles=[['ϟ','戰力','查看能力與當前作戰狀態','power'],['⬡','裝備','武器、護甲與欄位','equipment'],['▣','背包','物資與任務道具','inventory'],['☽','血統兌換','血統、條件與兌換面板','exchange'],['◎','修煉','能力養成與未來預留','power'],['◇','兌換','資源與特殊物品','exchange'],['✚','治療','傷勢與恢復條件','identity'],['⚑','支線合成','事件線與人物牽引','tasks']]
+ $('hubView').innerHTML='<aside class="hubside"><article class="identitycard"><div class="hubeyebrow">TRIAL SUBJECT</div><div class="hubname">'+esc(s.playerName||'無名者')+'</div><div class="hubid">ID // '+esc(s.session_code||'UNBOUND')+'</div><div class="statstack"><div class="hubstat">生命值 <b>'+esc(s.hp)+'/100</b></div><div class="hubstat">體力 <b>'+esc(s.stamina)+'/100</b></div><div class="hubstat">專注 <b>'+esc(s.focus)+'/100</b></div><div class="hubstat">獎勵點 <b>'+points+'</b></div></div><div class="hubeyebrow">STATUS</div><div class="statuslist">異常狀態：無已確認異常<br>永久損傷：無已確認記錄<br>特殊狀態：'+esc(s.ability?.name||'尚未覺醒')+'</div></article></aside><section class="hubmain"><article class="trialhero"><div class="hubeyebrow">CURRENT INSTANCE · '+esc(s.status||'active').toUpperCase()+'</div><h1>'+esc(s.title||'無可用副本')+'</h1><p>'+esc(s.scene_summary||s.scene_desc||s.objective||'等待主神空間建立任務資訊。')+'</p><div class="hubactions"><button class="hubprimary" onclick="enterInstance()">進入目前副本 →</button><button class="hubsecondary" onclick="openBrief()">任務簡報</button><button class="hubsecondary" onclick="newGame()">建立新試煉</button></div></article><div class="hubgrid">'+tiles.map(x=>'<button class="hubtile" onclick="openPanel(\''+x[3]+'\')"><span class="tileicon">'+x[0]+'</span><b>'+x[1]+'</b><span>'+x[2]+'</span></button>').join('')+'</div></section>'
+}
+function showHub(){if(!S)return;renderHub();$('hubView').classList.remove('hidden');['worldBrief','inlineMissions','narrative'].forEach(id=>$(id).classList.add('hidden'));document.querySelector('.composer').classList.add('hidden')}
+function enterInstance(){$('hubView').classList.add('hidden');['worldBrief','inlineMissions','narrative'].forEach(id=>$(id).classList.remove('hidden'));document.querySelector('.composer').classList.remove('hidden');render();window.scrollTo({top:0,behavior:'smooth'})}
+function openBrief(){const s=S.session,threads=(s.threads||[]).filter(t=>t.status==='open');$('modalTitle').textContent='任務簡報 / 任務詳情';$('modalBody').innerHTML='<div class="briefmodal"><article class="briefsection"><h3>任務簡報</h3><p>副本：'+esc(s.title)+'<br>難度：歷史副本／D級<br>類型：生存與世界探索<br>主要目標：'+esc(s.objective||'活過今天')+'<br>風險：危險度 '+esc(s.danger)+'<br>估計：依行動與路線演變</p></article><article class="briefsection"><h3>任務詳情</h3><p>主線：'+esc(s.objective||'—')+'<br>支線：'+(threads.map(t=>esc(t.title)).join('、')||'尚未確認')+'<br>主要人物：同場景 NPC 與已知事件線<br>特殊規則：自由輸入優先；規則引擎結算後果。</p></article></div>';$('modalBack').classList.remove('hidden')}
+
 function render(){
  if(!S)return;syncAbilityTag();const s=S.session,ts=[...S.turns].sort((a,b)=>a.turn_no-b.turn_no),t=ts[ts.length-1];
  $('gameName').textContent=s.title||'霧港試煉';$('turnLabel').textContent='第 '+(s.turn_no||0)+' 回合';$('topProgress').style.width=Math.max(0,Math.min(100,s.progress||0))+'%';$('progressText').textContent=(s.progress||0)+'%';$('timeText').textContent='時間 '+(s.time||'—');
@@ -343,6 +354,7 @@ async function generateSceneArt(){
   LAST_ART_URL=d.asset.url||'';openPanel('world')
  }catch(e){alert(e.message||String(e));openPanel('world')}
 }
+function panelExchange(){const cards=[['E','獵人感知','尚未解鎖','以精神負荷換取更敏銳的危險判讀。'],['D','血裔適性','條件不足','需要符合現有世界與角色條件。'],['C','戰術記憶','尚未解鎖','保留一次已驗證的行動經驗。']];return '<div class="shophead"><div class="tabs"><span class="tab active">全部</span><span class="tab">血統</span><span class="tab">能力</span><span class="tab">資源</span></div><div class="shopscore">獎勵點 '+(S.inventory||[]).reduce((a,x)=>a+Number(x.quantity||0),0)+'</div></div><div class="bloodgrid">'+cards.map(c=>'<article class="bloodcard"><div class="rank">RANK '+c[0]+'</div><h3>'+c[1]+'</h3><p>狀態：'+c[2]+'<br>'+c[3]+'</p><button disabled>兌換條件未滿足</button></article>').join('')+'</div>'}
 function panelHistory(){
  const ts=[...(S.turns||[])].filter(t=>t.turn_no>0).sort((a,b)=>b.turn_no-a.turn_no);
  if(!ts.length)return '<div class="sectiontitle">目前尚無回合紀錄。</div>';
@@ -361,7 +373,7 @@ function openPanel(type){
  if(!S&&type!=='help')return;
  const map={
   identity:['身份',panelIdentity],relations:['關係',panelRelations],power:['戰力',panelPower],equipment:['裝備',panelEquipment],
-  tasks:['任務',panelTasks],inventory:['背包',panelInventory],world:['世界狀態',panelWorld],history:['回合紀錄',panelHistory],
+  tasks:['任務',panelTasks],inventory:['背包',panelInventory],exchange:['血統兌換 / 兌換面板',panelExchange],world:['世界狀態',panelWorld],history:['回合紀錄',panelHistory],
   tags:['選擇授權 TAG（行動／能力／道具）',panelTags],help:['操作說明',panelHelp]
  };
  const p=map[type];if(!p)return;$('modalTitle').textContent=p[0];$('modalBody').innerHTML=p[1]();$('modalBack').classList.remove('hidden')
