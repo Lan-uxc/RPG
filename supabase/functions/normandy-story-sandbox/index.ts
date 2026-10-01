@@ -12,7 +12,37 @@ const uniq=(a:any[])=>[...new Set(a)]
 const fmt=(m:number)=>String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0')
 function hash(s:string){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return Math.abs(h)}
 function roll(s:string){return hash(s)%100+1}
-function clean(v:any){return String(v||'').trim().replace(/[<>]/g,'').slice(0,30)}
+function cleanShort(v:any,max=60){return String(v||'').trim().replace(/[<>]/g,'').slice(0,max)}
+// Player actions deliberately have a wider limit than names. Keep plain-text input safe,
+// but preserve enough context for multi-step free actions to be resolved deterministically.
+function cleanAction(v:any){return String(v||'').trim().replace(/[<>\u0000-\u001f]/g,'').slice(0,600)}
+function normalizedTags(tags:any[]){return uniq((Array.isArray(tags)?tags:[]).map(x=>cleanShort(x,30)).filter(Boolean)).slice(0,3)}
+const TAG_KIND:any={移動:'move',搜索:'observe',觀察:'observe',交涉:'talk',潛行:'hide',戰鬥:'fight',休息:'wait'}
+function actionKind(input:string,tags:string[],ability:any){
+ const parsed=parse(input)
+ // A TAG only supplies intent when the text itself is genuinely unclassified; it never
+ // overrides an explicit player action such as "交涉後撤退". A stealth movement phrase
+ // is the narrow exception: "貼著陰影繞過去" is still movement, but its chosen method is hide.
+ if(parsed!=='free'){
+  if(parsed==='move'&&tags.includes('潛行')&&/陰影|無聲|悄|貼著/.test(input))return'hide'
+  return parsed
+ }
+ const tag=tags.find(t=>TAG_KIND[t])
+ if(tag)return TAG_KIND[tag]
+ if(ability?.tag&&tags.includes(ability.tag)&&/轉化|血液|血裔|咬/.test(input))return'convert'
+ return'free'
+}
+function tagForKind(kind:string,tags:string[]){return tags.find(t=>TAG_KIND[t]===kind)||''}
+function choiceSemanticKey(choice:any){
+ const input=String(choice?.input||'')
+ const target=/柯爾|通訊/.test(input)?'cole':/里德|工兵|缺口/.test(input)?'reed':/佛斯特|救護|傷兵/.test(input)?'aid':/梅瑟/.test(input)?'mercer':/林蔚/.test(input)?'linwei':/陳墨/.test(input)?'chenmo':'world'
+ return 'intent_'+parse(input)+'_'+target
+}
+function rememberChoiceKeys(w:any,choices:any[]){
+ const prior=Array.isArray(w.choice_key_history)?w.choice_key_history:[]
+ const keys=(choices||[]).flatMap((x:any)=>[String(x?.key||''),choiceSemanticKey(x)]).filter(Boolean)
+ w.choice_key_history=uniq([...prior,...keys]).slice(-32)
+}
 function code(n=8){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',b=new Uint8Array(n);crypto.getRandomValues(b);return[...b].map(x=>a[x%a.length]).join('')}
 function token(){const b=new Uint8Array(24);crypto.getRandomValues(b);return[...b].map(x=>x.toString(16).padStart(2,'0')).join('')}
 async function sha(s:string){const x=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return[...new Uint8Array(x)].map(v=>v.toString(16).padStart(2,'0')).join('')}
@@ -113,12 +143,17 @@ function namedTarget(input:string,npcs:any[]){
  return null
 }
 
-function actionMinutes(kind:string,input:string){
+function actionMinutes(kind:string,input:string,tags:string[]=[]){
  if(kind==='wait'){
   const m=input.match(/(\d+)\s*分鐘/)
-  return m?Math.min(120,Math.max(5,Number(m[1]))):20
+  const base=m?Math.min(120,Math.max(5,Number(m[1]))):20
+  return tags.includes('休息')?Math.max(10,base):base
  }
  const base:any={observe:4,talk:5,aid:8,follow:7,radio:5,fight:4,hide:5,move:9,convert:6,free:6}
+ // A method TAG changes the cost of attempting the matching action; it never guarantees success.
+ if(kind==='hide'&&tags.includes('潛行'))return (base[kind]||5)+2
+ if(kind==='observe'&&(tags.includes('搜索')||tags.includes('觀察')))return (base[kind]||4)+1
+ if(kind==='move'&&tags.includes('移動'))return Math.max(5,(base[kind]||9)-1)
  return base[kind]||6
 }
 
@@ -179,16 +214,21 @@ function applyMovement(w:any,input:string,band:string){
  return old!==w.location
 }
 
-async function resolveAction(s:any,w:any,npcs:any[],input:string,kind:string,r:number){
+async function resolveAction(s:any,w:any,npcs:any[],input:string,kind:string,r:number,tags:string[]=[]){
  let hp=s.hp,st=s.stamina,fo=s.focus,danger=Number(w.danger||70),short='',importance=5
  const p:string[]=[]
  const target=namedTarget(input,npcs)
  const band=worldBand(Number(w.time_min||387))
  const ab=w.player?.ability
+ const method=tagForKind(kind,tags)
+ const abilityAuthorized=!!(ab?.tag&&tags.includes(ab.tag))
 
  if(kind==='convert'&&ab?.id==='progenitor_vampire'){
-  const t=target||npcs.find(n=>n.status!=='死亡'&&!n.state?.vampire)
-  if(!t){p.push('你沒有找到一個能確認仍活著、又能完成血液接觸的目標。');short='轉化條件沒有成立。'}
+  const t=abilityAuthorized?(target||npcs.find(n=>n.status!=='死亡'&&!n.state?.vampire)):null
+  if(!t){
+   p.push(abilityAuthorized?'你沒有找到一個能確認仍活著、又能完成血液接觸的目標。':'你知道自己有這項能力，但這回合沒有授權使用「'+ab.tag+'」的方法。')
+   short=abilityAuthorized?'轉化條件沒有成立。':'能力沒有獲得本回合授權。'
+  }
   else{
    st=clamp(st-14);fo=clamp(fo-4);danger=clamp(danger+6)
    await npcPatch(t.id,{status:'已轉化・必須避開直射日光',trust:Math.max(0,t.trust-8),tension:100,state:{...(t.state||{}),vampire:true,sunlight_weakness:true,converted_by:w.player.name}})
@@ -205,7 +245,8 @@ async function resolveAction(s:any,w:any,npcs:any[],input:string,kind:string,r:n
    if(stt.fear)parts.push('最怕的是「'+stt.fear+'」')
    if(stt.bottom_line)parts.push('底線是「'+stt.bottom_line+'」')
    if(parts.length)p.push('從他的回答和反應，你至少能確定：'+parts.join('，')+'。')
-   await npcPatch(target.id,{trust:Math.min(100,target.trust+3),tension:Math.max(0,target.tension-1)})
+   await npcPatch(target.id,{trust:Math.min(100,target.trust+(method==='交涉'?5:3)),tension:Math.max(0,target.tension-(method==='交涉'?2:1))})
+   if(method==='交涉')p.push('你把問題收斂成他能立刻回答的部分，這讓他少了一點防備。')
    short='你取得了'+target.name+'目前目標與態度的直接線索。'
   }else{
    p.push('你找最近能聽見的人問話。答案並不一致：有人只知道自己的班散了，有人說上級在海堤方向，也有人根本沒聽清問題。')
@@ -244,7 +285,7 @@ async function resolveAction(s:any,w:any,npcs:any[],input:string,kind:string,r:n
    short='目前無法直接使用通訊設備。'
   }
  }else if(kind==='fight'){
-  st=clamp(st-7);danger=clamp(danger+10)
+  st=clamp(st-7);danger=clamp(danger+(method==='戰鬥'?7:10));if(method==='戰鬥')fo=clamp(fo-2)
   if(r>45){
    p.push('你沒有把火力浪費在看不清的方向，而是等到一個反覆出現的射擊位置露出跡象才開火。那裡安靜了幾秒。')
    p.push('幾秒不代表摧毀了對方，但足夠讓附近的人改變位置。')
@@ -254,36 +295,66 @@ async function resolveAction(s:any,w:any,npcs:any[],input:string,kind:string,r:n
    short='交火沒有達成原本目的，卻迫使你改變位置並付出傷勢。'
   }
  }else if(kind==='hide'){
-  danger=clamp(danger-7)
+  danger=clamp(danger-(method==='潛行'?11:7));if(method==='潛行')fo=clamp(fo-2)
   p.push('你選的地方確實能減少眼前暴露，但視野也被遮住。幾分鐘後再探頭時，原本熟悉的人和路線已經換了位置。')
+  if(method==='潛行')p.push('你刻意壓低聲響與輪廓，換來更低的暴露，但專注被持續消耗。')
   short='你降低短期風險，同時失去部分即時資訊。'
  }else if(kind==='observe'){
-  fo=clamp(fo-2)
+  fo=clamp(fo-(method==='搜索'||method==='觀察'?3:2))
   const obs=[
    '你把注意力從槍聲本身移到人群的移動方式，很快看出真正危險的地方通常是所有人同時停下來的方向。',
    '你沒有找到一個「安全點」，但找到幾個只在數秒內相對安靜的位置；它們更像窗口，不像道路。',
    '你開始分辨哪些混亂只是恐慌，哪些變化代表某一側真的有部隊正在前進。',
    '你看見幾名士兵的注意力並不在同一件事上：有人只想離開水際，有人忙著找傷員，也有人一直在找失散的軍官。'
   ]
-  p.push(obs[r%obs.length]);short='觀察沒有停止世界，但讓你辨認出一個新的局勢差異。'
+  p.push(obs[r%obs.length]);if(method==='搜索'||method==='觀察'){p.push('你把注意力集中在可驗證的細節上，留下了一條之後能回頭利用的線索。');w.last_observation={at:w.time,method,clue:'已辨認一個可利用的局勢差異'};importance=6}
+  short=method==='搜索'||method==='觀察'?'你取得可回頭驗證的局部情報。':'觀察沒有停止世界，但讓你辨認出一個新的局勢差異。'
  }else if(kind==='move'){
-  const moved=applyMovement(w,input,band);st=clamp(st-5);danger=clamp(danger+(moved?3:0))
+  const moved=applyMovement(w,input,band);st=clamp(st-5);danger=clamp(danger+(moved?(method==='移動'?1:3):0))
   p.push(moved?'你沒有沿固定路線移動。每一段都是等火力、煙或人群位置改變後才換下一個遮蔽。':'你試著照自己的方向移動，但地形和火力把路線擠回附近區域。')
+  if(method==='移動')p.push('你把移動拆成短距離的可行路段，少暴露了一點，但沒有跳過地形與火力。')
   short=moved?'你的位置實際改變，新的環境取代原來場景。':'移動沒有抵達原先想像的位置，但你所在的小區域已改變。'
  }else if(kind==='wait'){
-  p.push('你沒有主動介入眼前任何一條線。等待並不讓世界暫停；你只是把主動權交給其他人和時間。')
-  short='你選擇等待，世界事件與 NPC 行動將主導這段時間。'
+  if(method==='休息'){st=clamp(st+7);fo=clamp(fo+4);danger=clamp(danger+2);p.push('你用短暫休息恢復呼吸與手腳的穩定，但戰場沒有替你停下。')}
+  else p.push('你沒有主動介入眼前任何一條線。等待並不讓世界暫停；你只是把主動權交給其他人和時間。')
+  short=method==='休息'?'你恢復了一部分體力與專注，但局勢繼續惡化。':'你選擇等待，世界事件與 NPC 行動將主導這段時間。'
  }else{
-  const generic=[
-   '你的做法沒有對應任何標準命令，但戰場也沒有要求每個人都按同一套流程行動。你只能一邊做、一邊根據眼前反應修正。',
-   '你開始照自己的方法處理眼前問題。真正影響結果的不是「有沒有這個選項」，而是附近的人、地形與時間是否允許。',
-   '這個行動只完成了一部分，剩下的部分被環境切斷；但你沒有回到原點，周圍的人和位置都已經發生改變。'
-  ]
-  p.push(generic[r%generic.length]);short='自由行動改變了局部狀態，但沒有直接決定後續劇情。'
+  const open=visibleThreads(w).filter((x:any)=>x.status==='open')
+  if(target){
+   const trustDelta=r%2===0?2:-1
+   await npcPatch(target.id,{trust:clamp(Number(target.trust||0)+trustDelta),tension:clamp(Number(target.tension||0)+(trustDelta>0?-1:2))})
+   p.push('你沒有照既有命令處理'+target.name+'，但他確實注意到你的做法；這改變了他此刻願不願意靠近你的程度。')
+   short=target.name+'對你的自訂行動留下了可持續的態度變化。';importance=6
+  }else if(open.length){
+   const t:any=open[r%open.length]
+   t.pressure=Math.max(1,Number(t.pressure||3)-1)
+   t.notes=uniq([...(t.notes||[]),'你以自訂方法介入，事件壓力暫時改變。']).slice(-5)
+   p.push('你的方法沒有直接結束「'+t.title+'」，但確實改變了它目前最急迫的部分。')
+   short='你以自訂方式介入既有事件，壓力與可選後果已改變。';importance=6
+  }else{
+   const delta=r%2===0?-2:2;danger=clamp(danger+delta);w.last_free_consequence={input:input.slice(0,160),location:w.location,at:w.time,danger_delta:delta}
+   p.push('你的方法沒有現成指令可套用，但它讓周圍的風險向一側偏移；下一步不能再把這裡當成原來的狀態。')
+   short='自由行動改變了局部危險與後續判斷。';importance=6
+  }
  }
  return{hp,st,fo,danger,paragraphs:p,short,importance}
 }
 
+function settleCoreThreads(w:any,input:string,kind:string,r:number,notes:string[]){
+ const threads=ensureThreads(w)
+ if(threads.cole_missing?.status==='open'&&/柯爾|通訊|無線電/.test(input)&&['follow','move','observe','radio','free'].includes(kind)){
+  if(r>35){w.radio_known=true;resolveThread(w,'cole_missing','你取得柯爾與 SCR-300 的明確下落；通訊線索不再只是失蹤事件。','resolved');notes.push('你順著留下的痕跡確認了柯爾與無線電的下落。這件事沒有回到原點，而是轉成可以使用的通訊線索。')}
+  else{resolveThread(w,'cole_missing','你沒有立刻找到柯爾，但確認他已被另一組人帶往較高位置；搜尋焦點改成追蹤其去向。','changed');notes.push('你沒有直接找到柯爾，但取得了足以改變搜尋方向的目擊線索。')}
+ }
+ if(threads.reed_breach?.status==='open'&&w.engineer_breach&&/里德|工兵|缺口/.test(input)&&['move','observe','free'].includes(kind)){
+  if(r>30){resolveThread(w,'reed_breach','你確認缺口仍可使用，並實際通過或交給後續盟軍使用。','resolved');notes.push('缺口的可用性已被實際驗證；它不再只是反覆提醒你的未解問題。')}
+  else{resolveThread(w,'reed_breach','你抵達時發現缺口已被火力與人群堵死，原本的機會已轉化為新的風險。','superseded');notes.push('工兵缺口仍存在，但已不再是目前可用的路線。')}
+ }
+ if(threads.aid_station?.status==='open'&&/佛斯特|救護|傷兵/.test(input)&&['aid','move','free'].includes(kind)){
+  if(r>35){resolveThread(w,'aid_station','你將可處置的傷員或資訊帶到救護點，並確認其目前最缺的人手與物資。','resolved');notes.push('救護點的需求已被你實際接上；這條事件不再停留在遠處傳聞。')}
+  else{resolveThread(w,'aid_station','救護點已被轉移或飽和，你只能確認原本的安排已失效。','changed');notes.push('你抵達後發現救護點的原狀已改變，後續必須改用新的救援方向。')}
+ }
+}
 function storyTexture(w:any,npcs:any[],kind:string,r:number){
  const p:string[]=[]
  const band=worldBand(Number(w.time_min||387))
@@ -411,11 +482,12 @@ function freshChoices(w:any,npcs:any[]){
  }
 
  // First prefer choices whose semantic key hasn't appeared recently.
- let fresh=pool.filter((x:any)=>!usedKeys.has(x.key))
- if(fresh.length<4){
-  // Reuse a semantic direction only after enough world change, but rotate concrete actors/threads.
-  const missing=pool.filter((x:any)=>!fresh.some((y:any)=>y.key===x.key))
-  fresh=[...fresh,...missing]
+ let fresh=pool.filter((x:any)=>!usedKeys.has(x.key)&&!usedKeys.has(choiceSemanticKey(x)))
+ if(!fresh.length){
+  // If every world-facing direction is recent, rotate them rather than returning no choices.
+  // Otherwise the natural fallbacks below fill the remaining slots without mechanically
+  // repeating the exact option the player just saw.
+  fresh=pool
  }
  const rot=fresh.length?serial%fresh.length:0
  let out=[...fresh.slice(rot),...fresh.slice(0,rot)].slice(0,4)
@@ -699,7 +771,7 @@ async function payload(s:any){
 }
 
 async function fresh(playerName:any){
- const name=clean(playerName)||'無名者',ab=abilityFor(name),c=code(),t=token()
+ const name=cleanShort(playerName,60)||'無名者',ab=abilityFor(name),c=code(),t=token()
  const w:any={
   time_min:387,time:'06:27',danger:76,day_progress:0,
   location:'奧馬哈海灘外海・Easy Red 前方登陸艇',
@@ -733,6 +805,7 @@ async function fresh(playerName:any){
  ])
  const {data:npcs=[]}=await db.from('game_npc_states').select('*').eq('session_id',s.id)
  w.offered_choices=freshChoices(w,npcs)
+ rememberChoiceKeys(w,w.offered_choices)
  await db.from('game_sessions').update({world_state:w}).eq('id',s.id)
  const n=
  '1944 年 6 月 6 日，06:27。\n\n'+
@@ -749,8 +822,9 @@ async function fresh(playerName:any){
  return{accessToken:t,state:await payload({...s,world_state:w})}
 }
 
-async function act(s:any,input0:string,tags:any[]){
- const input=clean(input0);if(!input)throw Error('請輸入行動')
+async function act(s:any,input0:string,tags0:any[]){
+ const input=cleanAction(input0);if(!input)throw Error('請輸入行動')
+ const tags=normalizedTags(tags0)
  const [{data:npcs=[]},{data:recent=[]}]=await Promise.all([
   db.from('game_npc_states').select('*').eq('session_id',s.id),
   db.from('game_turns').select('turn_no,player_input,narrative').eq('session_id',s.id).order('turn_no',{ascending:false}).limit(6)
@@ -759,12 +833,13 @@ async function act(s:any,input0:string,tags:any[]){
  const oldChoices=w.offered_choices||[]
  w.choice_history=uniq([...(w.choice_history||[]),...oldChoices.map((x:any)=>x.input)]).slice(-100)
  w.offered_choices=[]
- const kind=parse(input),r=roll(s.id+'|'+String(s.turn_no+1)+'|'+input),mins=actionMinutes(kind,input)
+ const kind=actionKind(input,tags,w.player?.ability),r=roll(s.id+'|'+String(s.turn_no+1)+'|'+input),mins=actionMinutes(kind,input,tags)
  const from=Number(w.time_min||387),to=Math.min(1260,from+mins)
- const result=await resolveAction(s,w,npcs,input,kind,r)
+ const result=await resolveAction(s,w,npcs,input,kind,r,tags)
  const notes:string[]=[...result.paragraphs]
  notes.push(...historicalEvents(w,from,to))
  await tickNpcs(w,npcs,from,to,notes)
+ settleCoreThreads(w,input,kind,r,notes)
  w.time_min=to;w.time=fmt(to);w.danger=result.danger
  w.day_progress=clamp(((to-387)/(1260-387))*100)
  const{data:freshForStory=[]}=await db.from('game_npc_states').select('*').eq('session_id',s.id)
@@ -794,6 +869,7 @@ async function act(s:any,input0:string,tags:any[]){
  const narrative=agents.narrator?.narrative||notes.join('\n\n')
  if(agents.director?.continuity_note)w.ai_director_note=String(agents.director.continuity_note).slice(0,500)
  w.offered_choices=status==='active'?(agents.narrator?.choices||fallbackChoices):[]
+ rememberChoiceKeys(w,w.offered_choices)
  const next=s.turn_no+1
  const res={intent:kind,outcome:status==='failed'?'failure':'resolved',roll:r,tags:Array.isArray(tags)?tags.slice(0,3):[],shortResult:result.short,timeCost:mins,worldBand:worldBand(to),aiUsed:!!agents.narrator,aiModel:agents.narrator?.model||null,directorUsed:!!agents.director}
  const {data:u,error}=await db.from('game_sessions').update({
