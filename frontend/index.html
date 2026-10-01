@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="zh-Hant" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d0c0a">
+<title>無限試煉空間</title>
+<style>
+:root{
+  --bg:#0c0b09;--panel:#15130f;--panel2:#1b1813;--panel3:#211d17;
+  --text:#ded8ce;--muted:#948d82;--faint:#6f695f;--line:#2c2821;--line2:#3a342b;
+  --accent:#e7e0d5;--signal:#bfa66f;--green:#4bc878;--blue:#65a7ff;--red:#d56b67;
+  --shadow:0 24px 70px rgba(0,0,0,.52);--radius:12px
+}
+html[data-theme="light"]{
+  --bg:#ece7de;--panel:#f5f1e9;--panel2:#eee9e0;--panel3:#e7e1d7;
+  --text:#29251f;--muted:#665f55;--faint:#8c8479;--line:#d8d0c5;--line2:#c8bfb2;
+  --accent:#1b1915;--signal:#8a6d35;--green:#2a9f58;--blue:#377ccc;--red:#b64c47;
+  --shadow:0 20px 50px rgba(67,56,42,.16)
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text)}
+body{font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;-webkit-font-smoothing:antialiased}
+button,textarea,input{font:inherit}
+button{color:inherit}
+.app{min-height:100vh;padding:14px}
+.shell{max-width:1500px;margin:auto;border:1px solid var(--line2);border-radius:16px;background:var(--bg);overflow:hidden;box-shadow:0 0 0 1px rgba(185,145,76,.18),var(--shadow)}
+.topbar{min-height:62px;padding:10px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
+.gameid{display:flex;align-items:center;gap:10px;min-width:260px}
+.dot{width:9px;height:9px;border-radius:50%;background:#d8d2c8;box-shadow:0 0 12px rgba(255,255,255,.22)}
+.gamename{font-size:14px;font-weight:650}.grade{padding:5px 9px;border:1px solid var(--line2);border-radius:7px;font-size:11px;color:var(--muted)}
+.topactions{margin-left:auto;display:flex;gap:7px;align-items:center}
+.topbtn,.iconbtn,.navbtn,.smallbtn,.actioncard,.execute,.tagplus{border:1px solid var(--line);background:var(--panel);border-radius:9px;cursor:pointer}
+.topbtn{padding:9px 12px;font-size:11px;display:flex;gap:7px;align-items:center}
+.topbtn small{display:block;font-size:8px;color:var(--faint);margin-top:2px}.iconbtn{width:38px;height:38px;display:grid;place-items:center;font-size:16px}
+.navrow{min-height:52px;display:flex;align-items:center;gap:7px;padding:8px 16px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.navrow::-webkit-scrollbar{display:none}.navbtn{white-space:nowrap;padding:8px 12px;font-size:11px}.navbtn:hover,.topbtn:hover,.iconbtn:hover,.smallbtn:hover{background:var(--panel2)}
+.turnstrip{display:flex;align-items:center;gap:12px;padding:7px 16px;border-bottom:1px solid var(--line);font-size:11px}
+.turnstrip .spacer{flex:1}.turnlabel{white-space:nowrap}.thinprog{height:5px;min-width:220px;max-width:380px;flex:1;background:#ddd2;border-radius:9px;overflow:hidden}
+.thinprog i{display:block;height:100%;background:var(--accent)}
+.turnmeta{font-size:10px;color:var(--muted);white-space:nowrap}
+.main{min-height:630px;padding:28px 5.2% 20px;background-image:radial-gradient(circle,#6a6258 0.65px,transparent .7px);background-size:18px 18px;background-position:-4px -4px}
+.narrative{min-height:400px;font-family:"Noto Serif TC","Songti TC","PMingLiU",serif;font-size:16px;line-height:2.15;color:var(--text);white-space:pre-wrap}
+.playerline{font-family:"PingFang TC","Noto Sans TC",sans-serif;color:var(--signal);font-size:12px;line-height:1.7;margin-bottom:18px}
+.opening{color:var(--muted)}
+.testline{margin-top:18px;padding-top:10px;border-top:1px dashed var(--line2);font:10px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--faint)}
+.tagbar{margin-top:20px;min-height:47px;border:1px solid var(--line);background:var(--panel);border-radius:9px;display:flex;align-items:center;padding:7px 10px;gap:7px}
+.taghint{font-size:11px;color:var(--muted);flex:1}.tagchip{border:1px solid #63563c;background:#211d14;color:#d6c59a;border-radius:999px;padding:5px 9px;font-size:10px}.tagplus{width:31px;height:31px;display:grid;place-items:center;margin-left:auto}
+.inputrow{display:grid;grid-template-columns:minmax(0,1fr) 80px 38px;gap:8px;margin-top:8px}
+.inputbox{position:relative;border:1px solid var(--line);background:var(--panel);border-radius:9px;display:flex;align-items:center}
+.inputbox:before{content:"✎";color:var(--faint);padding-left:12px}
+.inputbox textarea{width:100%;min-height:48px;max-height:110px;resize:none;border:0;background:transparent;outline:0;color:var(--text);padding:13px 46px 10px 10px;font-size:13px;line-height:1.5}
+.counter{position:absolute;right:11px;bottom:8px;color:var(--faint);font-size:9px}.execute{background:var(--accent);color:var(--bg);font-weight:700}.help{border:1px solid var(--line2);background:var(--panel);border-radius:9px;font-weight:700}
+.hint{font-size:10px;color:var(--faint);margin:8px 2px 11px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.actioncard{text-align:left;min-height:92px;padding:12px;background:var(--panel)}
+.actioncard:hover{background:var(--panel2)}.cardhead{display:flex;gap:8px;align-items:center;color:var(--faint);font-size:10px;margin-bottom:9px}
+.letter{width:20px;height:20px;border:1px solid var(--line2);border-radius:5px;display:grid;place-items:center;color:var(--text)}
+.cardtext{font-size:11px;line-height:1.55;color:var(--text)}
+.loading{opacity:.55;pointer-events:none}
+.modalback{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.72);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;padding:22px}
+.modal{width:min(980px,94vw);max-height:82vh;background:var(--panel);border:1px solid var(--line2);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+.modalhead{padding:19px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center}.modalhead h2{font-size:18px;font-weight:500;margin:0}
+.close{margin-left:auto;width:42px;height:42px;border-radius:50%;border:1px solid var(--accent);background:transparent;font-size:23px;cursor:pointer}
+.modalbody{padding:20px 22px;overflow:auto}.sectiontitle{font-size:11px;color:var(--muted);margin:4px 0 10px}
+.rows{border-top:1px solid var(--line)}.row{display:grid;grid-template-columns:180px 1fr;gap:12px;padding:13px 0;border-bottom:1px solid var(--line);font-size:12px}.row .rval{text-align:right}
+.meterline{display:flex;align-items:center;gap:12px;margin:10px 0}.meterline label{width:120px;font-size:11px}.meter{height:6px;flex:1;background:#2a2722;overflow:hidden}.meter i{display:block;height:100%;background:var(--green)}
+.bigscore{padding:20px;text-align:center;background:var(--panel2);border-radius:10px;margin-bottom:12px}.bigscore small{display:block;color:var(--muted);font-size:10px}.bigscore b{font:500 30px ui-monospace,SFMono-Regular,Menlo,monospace}
+.rel{padding:12px 0;border-bottom:1px solid var(--line)}.reltop{display:flex;gap:8px;align-items:center;font-size:12px}.relstatus{margin-left:auto;color:var(--green)}
+.reldesc{font-size:10px;color:var(--muted);margin:5px 0}.segment{display:grid;grid-template-columns:repeat(20,1fr);gap:2px;margin:7px 0}.segment i{height:5px;background:#2b2924}.segment i.on{background:#4d9f6c}
+.taskbox{border:1px solid var(--line);border-radius:10px;padding:13px;margin-bottom:12px}.taskbox.done{border-color:#318d50;background:#0f2716}.taskbox h3{font-size:12px;margin:0 0 8px}.taskbox p{font-size:10px;line-height:1.65;color:var(--muted);margin:0}
+.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}.tab{padding:7px 11px;border:1px solid var(--line);border-radius:7px;font-size:10px}.tab.active{border-color:#b89957;color:#dec999}
+.item{padding:11px 0;border-bottom:1px solid var(--line);font-size:11px}.item b{font-weight:500}.item small{display:block;color:var(--muted);margin-top:5px}
+.slot{display:grid;grid-template-columns:120px 1fr;gap:12px;padding:13px 0;border-bottom:1px solid var(--line);font-size:11px}.slot .empty{color:var(--muted)}
+.historyitem{border-bottom:1px solid var(--line);padding:12px 0}.historytop{display:flex;gap:10px;font-size:11px}.historyturn{font:10px ui-monospace;color:var(--faint);width:64px}.historyinput{color:var(--text);flex:1}.historyresult{font-size:10px;color:var(--muted);line-height:1.6;margin:6px 0 0 74px}
+.histtags{display:flex;gap:5px;flex-wrap:wrap;margin:6px 0 0 74px}.histtags span{font-size:9px;padding:3px 6px;border:1px solid var(--line2);border-radius:999px;color:var(--signal)}
+details{margin-left:74px;margin-top:7px}summary{cursor:pointer;font-size:10px;color:var(--faint)}details pre{white-space:pre-wrap;font:12px/1.75 "Noto Serif TC","PMingLiU",serif;color:var(--muted)}
+.taggrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tagoption{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;gap:10px;cursor:pointer}.tagoption.on{border-color:#c5af7a;background:#211d14}
+.check{width:18px;height:18px;border:1px solid var(--line2);border-radius:5px;display:grid;place-items:center}.tagoption.on .check:after{content:"✓";font-size:12px}
+.tagname{font-size:12px}.tagdesc{font-size:9px;color:var(--muted);margin-top:4px}.tagdone{margin-top:14px;width:100%;padding:12px;border:0;border-radius:9px;background:var(--accent);color:var(--bg);font-weight:700}
+.startback{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:20px}
+.startbox{width:min(440px,92vw);background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:24px;box-shadow:var(--shadow)}
+.startbox h1{font-size:23px;margin:0 0 10px}.startbox p{font-size:12px;line-height:1.75;color:var(--muted)}.startbtn{width:100%;padding:13px;border:0;border-radius:9px;background:var(--accent);color:var(--bg);font-weight:700}
+.hidden{display:none!important}
+@media(max-width:820px){
+  .app{padding:0}.shell{border:0;border-radius:0;min-height:100vh}.topbar{padding:9px 10px;min-height:55px}.gameid{min-width:0}.gamename{font-size:12px}.grade{font-size:9px}
+  .topbtn{padding:7px 8px}.topbtn small{display:none}.topactions{gap:5px}.iconbtn{width:34px;height:34px}
+  .navrow{padding:7px 9px}.navbtn{padding:7px 10px}.turnstrip{padding:6px 10px}.thinprog{min-width:100px}
+  .main{padding:20px 11px 14px;min-height:calc(100vh - 169px)}.narrative{font-size:15px;line-height:2;min-height:330px}
+  .cards{grid-template-columns:1fr 1fr}.inputrow{grid-template-columns:minmax(0,1fr) 64px 38px}.modalback{padding:8px}.modal{width:100%;max-height:91vh;border-radius:14px}.modalhead{padding:15px}.modalbody{padding:14px}
+  .row{grid-template-columns:120px 1fr}.taggrid{grid-template-columns:1fr}
+}
+@media(max-width:520px){
+  .topbtn .label2{display:none}.cards{grid-template-columns:1fr}.actioncard{min-height:74px}.turnmeta{display:none}.thinprog{min-width:70px}.main{padding-top:16px}
+}
+
+.setupbox{width:min(520px,94vw);background:var(--panel);border:1px solid var(--line2);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.setuphead{padding:22px 24px;border-bottom:1px solid var(--line)}
+.setupeyebrow{font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--signal);letter-spacing:.12em;margin-bottom:8px}
+.setuphead h1{font-size:24px;font-weight:500;margin:0}.setupbody{padding:22px 24px}.setupbody p{font-size:12px;line-height:1.8;color:var(--muted);margin:0 0 16px}
+.namefield{display:flex;flex-direction:column;gap:7px;margin:18px 0}.namefield label{font-size:10px;color:var(--faint)}
+.namefield input{width:100%;padding:13px 14px;border:1px solid var(--line2);border-radius:9px;background:var(--bg);color:var(--text);outline:0;font-size:15px}
+.namefield input:focus{border-color:var(--signal)}
+.abilitycard{border:1px solid #665a3e;background:#1f1a12;border-radius:12px;padding:16px;margin:10px 0 16px}
+html[data-theme="light"] .abilitycard{background:#f1eadc}
+.abilitytop{display:flex;align-items:flex-start;gap:10px}.abilityfamily{font:9px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--signal);letter-spacing:.08em}
+.abilityname{font-size:22px;margin-top:3px}.abilitydesc{font-size:12px;line-height:1.7;color:var(--muted);margin:10px 0 12px}
+.rulegrid{display:grid;grid-template-columns:80px 1fr;gap:8px 12px;border-top:1px solid var(--line);padding-top:11px;font-size:10px;line-height:1.55}
+.rulegrid b{color:var(--faint);font-weight:500}.rulegrid span{color:var(--text)}
+.storyhint{border-left:2px solid var(--signal);padding:10px 12px;background:rgba(191,166,111,.08);font-size:11px;line-height:1.7;color:var(--muted);margin-bottom:14px}
+.charname{color:var(--signal);font-weight:600}
+@media(max-width:520px){.setuphead,.setupbody{padding-left:18px;padding-right:18px}.abilityname{font-size:20px}.rulegrid{grid-template-columns:68px 1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+ <div class="shell" id="shell">
+  <header class="topbar">
+   <div class="gameid"><span class="dot"></span><span class="gamename" id="gameName">歷史沙盒 II：諾曼第 1944</span><span class="grade">歷史副本</span></div>
+   <div class="topactions">
+    <button class="topbtn" onclick="openPanel('world')"><span>檢查世界狀態</span><small>狀態與進度</small></button>
+    <button class="topbtn" onclick="openPanel('history')"><span>▣</span><span>回合紀錄</span></button>
+    <button class="iconbtn" onclick="toggleTheme()" title="切換主題">☼</button>
+    <button class="iconbtn" onclick="newGame()" title="新試煉">⌂</button>
+   </div>
+  </header>
+  <nav class="navrow">
+   <button class="navbtn" onclick="openPanel('identity')">♙　身份</button>
+   <button class="navbtn" onclick="openPanel('relations')">♧　關係</button>
+   <button class="navbtn" onclick="openPanel('power')">ϟ　戰力</button>
+   <button class="navbtn" onclick="openPanel('equipment')">⬡　裝備</button>
+   <button class="navbtn" onclick="openPanel('tasks')">⚑　任務</button>
+   <button class="navbtn" onclick="openPanel('inventory')">▣　背包</button>
+  </nav>
+  <div class="turnstrip">
+   <span class="turnlabel" id="turnLabel">第 0 回合</span>
+   <div class="thinprog"><i id="topProgress" style="width:0%"></i></div>
+   <span class="turnmeta" id="progressText">0%</span>
+   <span class="turnmeta" id="timeText">03:17</span>
+   <div class="spacer"></div>
+  </div>
+  <main class="main">
+   <div class="narrative" id="narrative"></div>
+   <div class="tagbar">
+    <div id="selectedTags" class="taghint">TAG　點此授權特殊行動（移動／搜索／能力／道具）</div>
+    <button class="tagplus" onclick="openPanel('tags')">＋</button>
+   </div>
+   <div class="inputrow">
+    <div class="inputbox"><textarea id="input" maxlength="600" placeholder="輸入自定義行動（Ctrl+Enter 送出）" oninput="updateCount()"></textarea><span class="counter" id="counter">0/600</span></div>
+    <button class="execute" id="execute" onclick="act()">執行 →</button>
+    <button class="help" onclick="openPanel('help')">?</button>
+   </div>
+   <div class="hint">最多選擇 3 個 TAG；TAG 代表本回合授權使用的方法，不代表自動成功。</div>
+   <div class="cards" id="actionCards"></div>
+  </main>
+ </div>
+</div>
+
+<div class="modalback hidden" id="modalBack" onclick="backdropClose(event)">
+ <div class="modal" onclick="event.stopPropagation()">
+  <div class="modalhead"><h2 id="modalTitle">面板</h2><button class="close" onclick="closePanel()">×</button></div>
+  <div class="modalbody" id="modalBody"></div>
+ </div>
+</div>
+
+<div class="startback" id="startBack">
+ <div class="setupbox">
+  <div class="setuphead">
+   <div class="setupeyebrow">CHARACTER CREATION</div>
+   <h1 id="setupTitle">建立角色</h1>
+  </div>
+  <div class="setupbody">
+   <div id="setupForm">
+    <p>這不是職業選單。你只需要留下角色的姓名；你會從盟軍登陸艇中的臨時補充兵開始，但這只是初始處境。歷史固定世界因果，不固定你的立場、忠誠、路線或人物選擇。</p>
+    <div class="namefield"><label>姓名</label><input id="playerName" maxlength="20" autocomplete="off" placeholder="輸入角色姓名"></div>
+    <div class="storyhint">本次測試：若姓名輸入「吸血鬼」，能力固定為「始祖血裔」；其他姓名仍使用測試能力池。能力具有作用、條件、限制與代價。</div>
+    <button class="startbtn" id="createBtn" onclick="createCharacter()">建立角色並生成能力</button>
+   </div>
+   <div id="abilityReveal" class="hidden">
+    <p><span class="charname" id="revealName"></span> 的先天適性已固定。這項能力會跟著本次角色存檔，不會因重新整理頁面而重抽。</p>
+    <div class="abilitycard">
+     <div class="abilitytop"><div><div class="abilityfamily" id="revealFamily"></div><div class="abilityname" id="revealAbility"></div></div></div>
+     <div class="abilitydesc" id="revealSummary"></div>
+     <div class="rulegrid">
+      <b>啟動條件</b><span id="revealActivation"></span>
+      <b>限制</b><span id="revealLimit"></span>
+      <b>代價</b><span id="revealCost"></span>
+     </div>
+    </div>
+    <div class="storyhint">本次測試採 Agent 架構：世界規則先結算事實，Director Agent 推理劇情張力，Narrator Agent 寫成小說；沒有固定劇本與回合上限。</div>
+    <button class="startbtn" onclick="enterStory()">進入故事</button>
+   </div>
+  </div>
+ </div>
+</div>
+
+<script>
+const API='https://zegqmtlfoiczuyvkwrsl.supabase.co/functions/v1/normandy-story-sandbox';
+const AGENT_API='https://zegqmtlfoiczuyvkwrsl.supabase.co/functions/v1/game-agent-hub';
+const C='normandy_story_session_v2',T='normandy_story_token_v2',THEME='trial_ui_theme';
+const DEBUG=new URLSearchParams(location.search).get('debug')==='1';
+const TAGS=[
+ {name:'移動',desc:'移動至其他場景或已知區域'},
+ {name:'搜索',desc:'搜索環境、物品、痕跡與隱藏資訊'},
+ {name:'觀察',desc:'提高對細節、危險與異常的注意'},
+ {name:'交涉',desc:'詢問、談判、欺騙或說服人物'},
+ {name:'潛行',desc:'隱蔽、降低聲光、避開注意'},
+ {name:'戰鬥',desc:'攻擊、壓制、反擊與戰術行動'},
+ {name:'使用道具',desc:'授權使用背包中的物品或工具'},
+ {name:'休息',desc:'恢復狀態，但會消耗副本時間'}
+];
+let S=null,Q=[],SELECTED=[],BUSY=false,LAST_ART_URL='';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function initTheme(){document.documentElement.setAttribute('data-theme',localStorage.getItem(THEME)||'dark')}
+function toggleTheme(){const n=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem(THEME,n)}
+function setBusy(v){BUSY=v;$('shell').classList.toggle('loading',v);$('execute').disabled=v}
+async function call(body){const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||'連線失敗');return d}
+async function createCharacter(){
+ const name=String($('playerName').value||'').trim();
+ if(!name){alert('請先輸入角色姓名');$('playerName').focus();return}
+ try{
+  $('createBtn').disabled=true;$('createBtn').textContent='能力生成中…';
+  const d=await call({op:'new',playerName:name});
+  localStorage.setItem(C,d.state.session.session_code);localStorage.setItem(T,d.accessToken);S=d.state;
+  const a=S.session.ability||{};
+  $('setupForm').classList.add('hidden');$('abilityReveal').classList.remove('hidden');$('setupTitle').textContent='先天能力';
+  $('revealName').textContent=S.session.playerName||name;$('revealFamily').textContent=(a.family||'未知型').toUpperCase();
+  $('revealAbility').textContent=a.name||'未知';$('revealSummary').textContent=a.summary||'';
+  $('revealActivation').textContent=a.activation||'—';$('revealLimit').textContent=a.limit||'—';$('revealCost').textContent=a.cost||'—';
+ }catch(e){alert(e.message);$('createBtn').disabled=false;$('createBtn').textContent='建立角色並生成能力'}
+}
+function enterStory(){$('startBack').classList.add('hidden');render()}
+async function resume(){const c=localStorage.getItem(C),t=localStorage.getItem(T);if(!c||!t)return;try{const d=await call({op:'load',sessionCode:c,accessToken:t});S=d.state;$('startBack').classList.add('hidden');render()}catch(e){localStorage.removeItem(C);localStorage.removeItem(T)}}
+async function act(v){v=(v||$('input').value).trim();if(!v||!S||BUSY||S.session.status!=='active')return;try{setBusy(true);$('input').value='';updateCount();const d=await call({op:'act',sessionCode:localStorage.getItem(C),accessToken:localStorage.getItem(T),input:v,tags:SELECTED});S=d.state;SELECTED=[];render();window.scrollTo({top:0,behavior:'smooth'})}catch(e){alert(e.message)}finally{setBusy(false)}}
+function quick(i){if(Q[i])act(Q[i].input)}
+function updateCount(){$('counter').textContent=$('input').value.length+'/600'}
+function shortResult(t){const r=t?.resolution||{};return r.shortResult||r.newClue||r.consequence||'世界狀態已改變'}
+function syncAbilityTag(){
+ if(!S?.session?.ability?.name)return;
+ const a=S.session.ability;
+ if(!TAGS.some(x=>x.name===a.name))TAGS.push({name:a.name,desc:'先天能力｜'+a.summary});
+}
+function renderTags(){
+ if(!SELECTED.length){$('selectedTags').className='taghint';$('selectedTags').textContent='TAG　點此授權特殊行動（移動／搜索／能力／道具）'}
+ else{$('selectedTags').className='';$('selectedTags').innerHTML=SELECTED.map(x=>'<span class="tagchip">'+esc(x)+'</span>').join(' ')}
+}
+function render(){
+ if(!S)return;syncAbilityTag();const s=S.session,ts=[...S.turns].sort((a,b)=>a.turn_no-b.turn_no),t=ts[ts.length-1];
+ $('gameName').textContent=s.title||'霧港試煉';$('turnLabel').textContent='第 '+(s.turn_no||0)+' 回合';$('topProgress').style.width=Math.max(0,Math.min(100,s.progress||0))+'%';$('progressText').textContent=(s.progress||0)+'%';$('timeText').textContent='時間 '+(s.time||'—');
+ let body='';if(t){body+='<div class="'+(t.turn_no===0?'opening':'')+'">'+esc(t.narrative||'')+'</div>';if(DEBUG&&t.resolution)body+='<div class="testline">TEST // '+esc(t.resolution.outcome)+' · d100 '+esc(t.resolution.roll)+' · danger '+esc(s.danger)+' · '+esc((t.resolution.tags||[]).join(' / '))+'</div>'}
+ $('narrative').innerHTML=body;
+ Q=S.choices||[];const letters=['A','B','C','D'];$('actionCards').innerHTML=Q.slice(0,4).map((c,i)=>'<button class="actioncard" onclick="quick('+i+')"><div class="cardhead"><span class="letter">'+letters[i]+'</span><span>→ 行動</span></div><div class="cardtext">'+esc(c.input||c.label)+'</div></button>').join('');
+ renderTags()
+}
+function newGame(){if(!confirm('建立新的角色與試煉？目前 Session 仍會保留在雲端。'))return;localStorage.removeItem(C);localStorage.removeItem(T);S=null;SELECTED=[];$('abilityReveal').classList.add('hidden');$('setupForm').classList.remove('hidden');$('setupTitle').textContent='建立角色';$('playerName').value='';$('createBtn').disabled=false;$('createBtn').textContent='建立角色並生成能力';$('startBack').classList.remove('hidden');closePanel()}
+function backdropClose(e){if(e.target===$('modalBack'))closePanel()}
+function closePanel(){$('modalBack').classList.add('hidden')}
+function meter(v,max=100,color='var(--green)'){const p=Math.max(0,Math.min(100,(v/max)*100));return '<div class="meter"><i style="width:'+p+'%;background:'+color+'"></i></div>'}
+function relationSegments(v){const n=Math.max(0,Math.min(20,Math.round((v||0)/5)));return '<div class="segment">'+Array.from({length:20},(_,i)=>'<i class="'+(i<n?'on':'')+'"></i>').join('')+'</div>'}
+function panelIdentity(){
+ const s=S.session;return '<div class="rows">'+
+ '<div class="row"><div>姓名</div><div class="rval">'+esc(s.playerName||'無名者')+'</div></div>'+ '<div class="row"><div>出身</div><div class="rval">'+esc(s.origin||'現實世界')+'</div></div>'+
+ '<div class="row"><div>Session</div><div class="rval">'+esc(s.session_code)+'</div></div>'+
+ '<div class="row"><div>目前副本</div><div class="rval">'+esc(s.title)+'</div></div>'+
+ '<div class="row"><div>所在位置</div><div class="rval">'+esc(s.scene_name)+'</div></div>'+
+ '<div class="row"><div>副本時間</div><div class="rval">'+esc(s.time)+'</div></div>'+ '<div class="row"><div>世界階段</div><div class="rval">'+esc(s.worldBandLabel||s.worldBand||'—')+'</div></div>'+
+ '</div><div class="sectiontitle" style="margin-top:18px">狀態</div>'+
+ '<div class="meterline"><label>生命值　'+s.hp+'/100</label>'+meter(s.hp)+'</div>'+
+ '<div class="meterline"><label>體力　'+s.stamina+'/100</label>'+meter(s.stamina,100,'var(--signal)')+'</div>'+
+ '<div class="meterline"><label>專注　'+s.focus+'/100</label>'+meter(s.focus,100,'var(--blue)')+'</div>';
+}
+function panelRelations(){
+ const np=S.npcs||[];if(!np.length)return '<div class="sectiontitle">目前沒有建立人物關係。</div>';
+ return np.map(n=>{
+  const rv=n.relation_view||{},kind=rv.kind||'人物';
+  const rel=n.trust>=60?'友好':n.trust>=30?'中立':'警戒';
+  const note=rv.certainty==='unrecognizable'?'外觀與言行已沒有足夠線索辨認其是否為倖存者。':rv.certainty==='suspected'?'目前只能從可觀察細節懷疑，尚未確認。':'';
+  return '<div class="rel"><div class="reltop"><b>'+esc(n.name)+'</b><span>'+esc(kind)+'</span><span class="relstatus">'+rel+' ('+n.trust+')</span></div><div class="reldesc">'+esc(n.status)+'　／　緊張 '+n.tension+(note?'<br>'+esc(note):'')+'</div>'+relationSegments(n.trust)+'<div class="meterline"><label>緊張度</label>'+meter(n.tension,100,'var(--red)')+'</div></div>'
+ }).join('');
+}
+function panelPower(){
+ const s=S.session,a=s.ability||{},readiness=Math.round((s.hp+s.stamina+s.focus)/3);
+ return '<div class="bigscore"><small>目前作戰狀態</small><b>'+readiness+'</b></div>'+
+ '<div class="sectiontitle">目前數字只代表當下狀態；真正的能力價值取決於條件、情報與使用方式。</div>'+
+ '<div class="rows"><div class="row"><div>生命狀態</div><div class="rval">'+s.hp+'</div></div><div class="row"><div>體能狀態</div><div class="rval">'+s.stamina+'</div></div><div class="row"><div>專注狀態</div><div class="rval">'+s.focus+'</div></div></div>'+
+ (a.name?'<div class="abilitycard" style="margin-top:16px"><div class="abilityfamily">'+esc(a.family||'先天能力')+'</div><div class="abilityname">'+esc(a.name)+'</div><div class="abilitydesc">'+esc(a.summary||'')+'</div><div class="rulegrid"><b>啟動條件</b><span>'+esc(a.activation||'—')+'</span><b>限制</b><span>'+esc(a.limit||'—')+'</span><b>代價</b><span>'+esc(a.cost||'—')+'</span></div></div>':'');
+}
+function panelEquipment(){
+ const slots=['頭部','護甲','手套','腰帶','鞋子','項鍊','戒指①','戒指②','主武器','副武器','近戰武器','遠程武器','盾牌','特殊裝備'];
+ return '<div class="sectiontitle">裝備系統已預留；目前第一試煉尚未取得可裝備物。</div>'+slots.map(x=>'<div class="slot"><div>'+x+'</div><div class="empty">空</div></div>').join('');
+}
+function panelTasks(){
+ const s=S.session,threads=s.threads||[],mem=(S.memories||[]).slice(0,6);
+ let out='<div class="sectiontitle">▸ 最低生存條件</div><div class="taskbox"><h3>'+esc(s.objective||'—')+'</h3><p>目前時間 '+esc(s.time||'—')+'　／　'+esc(s.worldBandLabel||'')+'</p></div>';
+ out+='<div class="sectiontitle">▸ 目前已牽動的事件</div>';
+ out+=threads.length?threads.map(t=>'<div class="taskbox '+(t.status==='resolved'?'done':'')+'"><h3>'+esc(t.title||t.key)+'</h3><p>'+esc((t.notes||[]).slice(-1)[0]||'狀態正在發展')+'</p></div>').join(''):'<div class="taskbox"><p>目前沒有需要被列成「支線任務」的固定清單。事件會從人物與世界自然出現。</p></div>';
+ out+='<div class="sectiontitle">▸ 已確認的重要資訊</div>';
+ out+=mem.length?mem.map(m=>'<div class="taskbox '+(m.importance>=8?'done':'')+'"><h3>'+esc(m.subject_key||'情報')+'</h3><p>'+esc(m.content)+'</p></div>').join(''):'<div class="taskbox"><p>目前尚無足夠重要資訊。</p></div>';
+ return out;
+}
+function panelInventory(){
+ const inv=S.inventory||[];return '<div class="sectiontitle">物品容量　'+inv.reduce((a,x)=>a+Number(x.quantity||0),0)+' 件</div><div class="tabs"><span class="tab active">背包 '+inv.length+'</span><span class="tab">材料 0</span><span class="tab">任務物品</span><span class="tab">特殊</span></div>'+
+ (inv.length?inv.map(x=>'<div class="item"><b>'+esc(x.name)+' ×'+x.quantity+'</b><small>'+esc(x.description||'')+'</small></div>').join(''):'<div class="item">目前沒有物品。</div>');
+}
+function panelWorld(){
+ const s=S.session,ts=[...S.turns].sort((a,b)=>a.turn_no-b.turn_no),t=ts[ts.length-1],r=t?.resolution||{},m=S.agentModels||{};
+ const ai=S.aiConfigured?'已連接':'尚未連接';
+ let out='<div class="bigscore"><small>世界狀態</small><b>'+esc(s.status||'active')+'</b></div><div class="rows">'+
+ '<div class="row"><div>目前位置</div><div class="rval">'+esc(s.scene_name)+'</div></div>'+
+ '<div class="row"><div>副本時間</div><div class="rval">'+esc(s.time)+'</div></div>'+
+ '<div class="row"><div>危險度</div><div class="rval">'+esc(s.danger)+'</div></div>'+
+ '<div class="row"><div>當日時間進度</div><div class="rval">'+esc(s.progress)+'%</div></div>'+
+ '<div class="row"><div>AI Agent</div><div class="rval">'+ai+'</div></div>'+
+ '<div class="row"><div>小說／導演</div><div class="rval">'+esc(m.narrator||'GPT-5.6 Sol / high')+'</div></div>'+
+ '<div class="row"><div>程式維護</div><div class="rval">'+esc(m.coding||'GPT-5.3 Codex / high')+'</div></div>'+
+ '<div class="row"><div>圖片素材</div><div class="rval">'+esc(m.art||'GPT-Image-2')+'</div></div>'+
+ '<div class="row"><div>最後世界反應</div><div class="rval">'+esc(r.worldState?.last_event||r.shortResult||'—')+'</div></div>'+
+ '</div>';
+ if(S.aiConfigured&&s.status==='active')out+='<button class="tagdone" onclick="generateSceneArt()">生成當前場景素材</button>';
+ if(LAST_ART_URL)out+='<div class="taskbox" style="margin-top:12px"><h3>最新場景素材</h3><img src="'+esc(LAST_ART_URL)+'" style="width:100%;border-radius:10px;margin-top:8px"></div>';
+ return out;
+}
+async function generateSceneArt(){
+ if(!S?.aiConfigured){alert('AI 尚未連接');return}
+ try{
+  const body={op:'art',sessionCode:localStorage.getItem(C),accessToken:localStorage.getItem(T),kind:'scene',subject:(S.session.scene_name||'當前場景')+'・第 '+(S.session.turn_no||0)+' 回合'};
+  $('modalBody').innerHTML='<div class="taskbox"><h3>Art Agent 正在生成場景素材…</h3><p>模型：GPT-Image-2</p></div>';
+  const r=await fetch(AGENT_API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'圖片生成失敗');
+  LAST_ART_URL=d.asset.url||'';openPanel('world')
+ }catch(e){alert(e.message||String(e));openPanel('world')}
+}
+function panelHistory(){
+ const ts=[...(S.turns||[])].filter(t=>t.turn_no>0).sort((a,b)=>b.turn_no-a.turn_no);
+ if(!ts.length)return '<div class="sectiontitle">目前尚無回合紀錄。</div>';
+ return ts.map(t=>'<div class="historyitem"><div class="historytop"><span class="historyturn">TURN '+t.turn_no+'</span><span class="historyinput">'+esc(t.player_input)+'</span></div><div class="historyresult">→ '+esc(shortResult(t))+'</div>'+
+ ((t.resolution?.tags||[]).length?'<div class="histtags">'+t.resolution.tags.map(x=>'<span>'+esc(x)+'</span>').join('')+'</div>':'')+
+ '<details><summary>查看完整回合</summary><pre>'+esc(t.narrative||'')+'</pre></details></div>').join('');
+}
+function panelTags(){
+ return '<div class="sectiontitle">必須點選標記；每回合最多 3 個。TAG 只是授權使用的方法，不會自動成功。</div><div class="taggrid">'+
+ TAGS.map(t=>'<div class="tagoption '+(SELECTED.includes(t.name)?'on':'')+'" onclick="toggleTag(\''+t.name+'\')"><div class="check"></div><div><div class="tagname">'+t.name+'</div><div class="tagdesc">'+t.desc+'</div></div></div>').join('')+
+ '</div><button class="tagdone" onclick="closePanel()">完成（已選 '+SELECTED.length+'/3）</button>';
+}
+function panelHelp(){return '<div class="taskbox"><h3>自由行動</h3><p>你不需要照四個建議走。任何可理解的行動都可以輸入；世界只依既有事實、時間、人物與代價回應。</p></div><div class="taskbox"><h3>事件線</h3><p>支線不是預先列好的任務。只有當你真正捲入某件人物、情報、傷勢或資源問題後，它才會出現在事件面板，而且即使你不管，它也可能繼續發展。</p></div><div class="taskbox"><h3>選項</h3><p>每次行動後 A/B/C/D 會全部重新生成；上一回合未選的選項不會往前遞補。</p></div>'}
+function toggleTag(name){if(SELECTED.includes(name))SELECTED=SELECTED.filter(x=>x!==name);else if(SELECTED.length<3)SELECTED.push(name);renderTags();openPanel('tags')}
+function openPanel(type){
+ if(!S&&type!=='help')return;
+ const map={
+  identity:['身份',panelIdentity],relations:['關係',panelRelations],power:['戰力',panelPower],equipment:['裝備',panelEquipment],
+  tasks:['任務',panelTasks],inventory:['背包',panelInventory],world:['世界狀態',panelWorld],history:['回合紀錄',panelHistory],
+  tags:['選擇授權 TAG（行動／能力／道具）',panelTags],help:['操作說明',panelHelp]
+ };
+ const p=map[type];if(!p)return;$('modalTitle').textContent=p[0];$('modalBody').innerHTML=p[1]();$('modalBack').classList.remove('hidden')
+}
+$('input').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')act()});
+$('playerName').addEventListener('keydown',e=>{if(e.key==='Enter')createCharacter()});initTheme();resume();updateCount();
+</script>
+</body>
+</html>
