@@ -7,16 +7,10 @@
 <title>無限試煉空間</title>
 <style>
 :root{
-  --bg:#0c0b09;--panel:#15130f;--panel2:#1b1813;--panel3:#211d17;
-  --text:#ded8ce;--muted:#948d82;--faint:#6f695f;--line:#2c2821;--line2:#3a342b;
-  --accent:#e7e0d5;--signal:#bfa66f;--green:#4bc878;--blue:#65a7ff;--red:#d56b67;
-  --shadow:0 24px 70px rgba(0,0,0,.52);--radius:12px
-}
-html[data-theme="light"]{
-  --bg:#ece7de;--panel:#f5f1e9;--panel2:#eee9e0;--panel3:#e7e1d7;
-  --text:#29251f;--muted:#665f55;--faint:#8c8479;--line:#d8d0c5;--line2:#c8bfb2;
-  --accent:#1b1915;--signal:#8a6d35;--green:#2a9f58;--blue:#377ccc;--red:#b64c47;
-  --shadow:0 20px 50px rgba(67,56,42,.16)
+  --bg:#000000;--panel:#0a0a0a;--panel2:#111111;--panel3:#181818;
+  --text:#f1f1f1;--muted:#999999;--faint:#666666;--line:#242424;--line2:#383838;
+  --accent:#eeeeee;--signal:#c9b987;--green:#4fc77a;--blue:#70aaff;--red:#dc706b;
+  --shadow:0 22px 65px rgba(0,0,0,.78);--radius:10px
 }
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text)}
@@ -39,12 +33,15 @@ button{color:inherit}
 .turnstrip .spacer{flex:1}.turnlabel{white-space:nowrap}.thinprog{height:5px;min-width:220px;max-width:380px;flex:1;background:#ddd2;border-radius:9px;overflow:hidden}
 .thinprog i{display:block;height:100%;background:var(--accent)}
 .turnmeta{font-size:10px;color:var(--muted);white-space:nowrap}
-.main{min-height:630px;padding:28px 5.2% 20px;background-image:radial-gradient(circle,#6a6258 0.65px,transparent .7px);background-size:18px 18px;background-position:-4px -4px}
-.narrative{min-height:400px;font-family:"Noto Serif TC","Songti TC","PMingLiU",serif;font-size:16px;line-height:2.15;color:var(--text);white-space:pre-wrap}
+.main{min-height:630px;padding:22px 5.2% 156px;background:#000000}
+.worldbrief{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 auto 14px;max-width:1040px}.briefcard{min-height:100px;padding:14px 16px;border:1px solid var(--line2);border-radius:10px;background:var(--panel)}.briefhead{font-size:10px;color:var(--signal);letter-spacing:.08em;margin-bottom:9px}.brieftitle{font-size:15px;font-weight:600}.briefmeta{margin-top:7px;font-size:11px;line-height:1.65;color:var(--muted)}.briefstats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:8px}.briefstat{font-size:10px;color:var(--muted)}.briefstat b{display:block;margin-top:4px;font:600 15px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text)}
+.inlineMissions{max-width:1040px;margin:0 auto 18px}.missionhead{font-size:10px;letter-spacing:.09em;color:var(--green);margin:0 0 7px}.missiongrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.missioncard{border:1px solid #28533a;border-left:3px solid var(--green);border-radius:8px;background:#07100a;padding:10px 12px}.missioncard.main{border-left-color:var(--signal);border-color:#51472b;background:#100f08;padding:10px 12px;min-height:0}.missioncard b{font-size:12px}.missioncard span{display:block;margin-top:4px;font-size:10px;color:var(--muted);line-height:1.55}
+.narrative{max-width:920px;margin:0 auto;min-height:400px;border-left:1px solid #303030;padding:4px 0 8px 24px;font-family:"Noto Serif TC","Songti TC","PMingLiU",serif;font-size:18px;line-height:2.25;color:var(--text);white-space:pre-wrap}
 .playerline{font-family:"PingFang TC","Noto Sans TC",sans-serif;color:var(--signal);font-size:12px;line-height:1.7;margin-bottom:18px}
 .opening{color:var(--muted)}
 .testline{margin-top:18px;padding-top:10px;border-top:1px dashed var(--line2);font:10px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--faint)}
-.tagbar{margin-top:20px;min-height:47px;border:1px solid var(--line);background:var(--panel);border-radius:9px;display:flex;align-items:center;padding:7px 10px;gap:7px}
+.composer{position:sticky;bottom:0;z-index:10;max-width:1040px;margin:22px auto 0;padding:10px 0 2px;background:#000000}
+.tagbar{margin-top:0;min-height:47px;border:1px solid var(--line);background:var(--panel);border-radius:9px;display:flex;align-items:center;padding:7px 10px;gap:7px}
 .taghint{font-size:11px;color:var(--muted);flex:1}.tagchip{border:1px solid #63563c;background:#211d14;color:#d6c59a;border-radius:999px;padding:5px 9px;font-size:10px}.tagplus{width:31px;height:31px;display:grid;place-items:center;margin-left:auto}
 .inputrow{display:grid;grid-template-columns:minmax(0,1fr) 80px 38px;gap:8px;margin-top:8px}
 .inputbox{position:relative;border:1px solid var(--line);background:var(--panel);border-radius:9px;display:flex;align-items:center}
@@ -85,7 +82,7 @@ details{margin-left:74px;margin-top:7px}summary{cursor:pointer;font-size:10px;co
   .app{padding:0}.shell{border:0;border-radius:0;min-height:100vh}.topbar{padding:9px 10px;min-height:55px}.gameid{min-width:0}.gamename{font-size:12px}.grade{font-size:9px}
   .topbtn{padding:7px 8px}.topbtn small{display:none}.topactions{gap:5px}.iconbtn{width:34px;height:34px}
   .navrow{padding:7px 9px}.navbtn{padding:7px 10px}.turnstrip{padding:6px 10px}.thinprog{min-width:100px}
-  .main{padding:20px 11px 14px;min-height:calc(100vh - 169px)}.narrative{font-size:15px;line-height:2;min-height:330px}
+  .main{padding:16px 11px 144px;min-height:calc(100vh - 169px)}.worldbrief,.missiongrid{grid-template-columns:1fr}.narrative{font-size:16px;line-height:2.1;min-height:330px;padding-left:15px}.composer{margin-top:16px}
   .cards{grid-template-columns:1fr 1fr}.inputrow{grid-template-columns:minmax(0,1fr) 64px 38px}.modalback{padding:8px}.modal{width:100%;max-height:91vh;border-radius:14px}.modalhead{padding:15px}.modalbody{padding:14px}
   .row{grid-template-columns:120px 1fr}.taggrid{grid-template-columns:1fr}
 }
@@ -139,18 +136,22 @@ html[data-theme="light"] .abilitycard{background:#f1eadc}
    <div class="spacer"></div>
   </div>
   <main class="main">
+   <section class="worldbrief" id="worldBrief"></section>
+   <section class="inlineMissions" id="inlineMissions"></section>
    <div class="narrative" id="narrative"></div>
-   <div class="tagbar">
-    <div id="selectedTags" class="taghint">TAG　點此授權特殊行動（移動／搜索／能力／道具）</div>
-    <button class="tagplus" onclick="openPanel('tags')">＋</button>
-   </div>
-   <div class="inputrow">
-    <div class="inputbox"><textarea id="input" maxlength="600" placeholder="輸入自定義行動（Ctrl+Enter 送出）" oninput="updateCount()"></textarea><span class="counter" id="counter">0/600</span></div>
-    <button class="execute" id="execute" onclick="act()">執行 →</button>
-    <button class="help" onclick="openPanel('help')">?</button>
-   </div>
-   <div class="hint">最多選擇 3 個 TAG；TAG 代表本回合授權使用的方法，不代表自動成功。</div>
-   <div class="cards" id="actionCards"></div>
+   <section class="composer">
+    <div class="tagbar">
+     <div id="selectedTags" class="taghint">TAG　點此授權特殊行動（移動／搜索／能力／道具）</div>
+     <button class="tagplus" onclick="openPanel('tags')">＋</button>
+    </div>
+    <div class="inputrow">
+     <div class="inputbox"><textarea id="input" maxlength="600" placeholder="輸入自定義行動（Ctrl+Enter 送出）" oninput="updateCount()"></textarea><span class="counter" id="counter">0/600</span></div>
+     <button class="execute" id="execute" onclick="act()">執行 →</button>
+     <button class="help" onclick="openPanel('help')">?</button>
+    </div>
+    <div class="hint">最多選擇 3 個 TAG；TAG 代表本回合授權使用的方法，不代表自動成功。</div>
+    <div class="cards" id="actionCards"></div>
+   </section>
   </main>
  </div>
 </div>
@@ -244,9 +245,21 @@ function renderTags(){
  if(!SELECTED.length){$('selectedTags').className='taghint';$('selectedTags').textContent='TAG　點此授權特殊行動（移動／搜索／能力／道具）'}
  else{$('selectedTags').className='';$('selectedTags').innerHTML=SELECTED.map(x=>'<span class="tagchip">'+esc(x)+'</span>').join(' ')}
 }
+function renderBrief(){
+ const s=S.session,threads=(s.threads||[]).filter(t=>t.status==='open'),local=(S.npcs||[]).filter(n=>n.scene_key===s.current_scene_key&&!n.state?.missing&&n.state?.location_known!==false)
+ $('worldBrief').innerHTML='<article class="briefcard"><div class="briefhead">SCENE / 當前場景</div><div class="brieftitle">'+esc(s.scene_name||'未知位置')+'</div><div class="briefmeta">'+esc(s.scene_summary||s.scene_desc||'場景資訊尚未載入。')+'</div><div class="briefstats"><div class="briefstat">可觸發支線<b>'+threads.length+'</b></div><div class="briefstat">特殊事件<b>'+threads.filter(t=>Number(t.pressure)>=6).length+'</b></div><div class="briefstat">危險度<b>'+esc(s.danger??'—')+'</b></div></div></article>'+
+ '<article class="briefcard"><div class="briefhead">STATUS / 重要狀態</div><div class="brieftitle">'+esc(s.playerName||'無名者')+' · '+esc(s.ability?.name||'一般狀態')+'</div><div class="briefstats"><div class="briefstat">生命<b>'+esc(s.hp)+'</b></div><div class="briefstat">體力<b>'+esc(s.stamina)+'</b></div><div class="briefstat">專注<b>'+esc(s.focus)+'</b></div></div><div class="briefmeta">同場景可見人物：'+local.map(n=>esc(n.name)).join('、')||'無法確認'+'</div></article>'
+}
+function renderInlineMissions(){
+ const s=S.session,threads=(s.threads||[]).filter(t=>t.status==='open').slice(0,2)
+ const main='<article class="missioncard main"><b>主線｜'+esc(s.objective||'活過今天')+'</b><span>時間 '+esc(s.time||'—')+' · '+esc(s.worldBandLabel||'')+'</span></article>'
+ const side=threads.length?threads.map(t=>'<article class="missioncard"><b>支線｜'+esc(t.title||t.key)+'</b><span>'+esc((t.notes||[]).slice(-1)[0]||'事件正在演變')+'</span></article>').join(''):'<article class="missioncard"><b>支線｜尚未觸發</b><span>人物、情報與資源事件會隨你的實際行動出現。</span></article>'
+ $('inlineMissions').innerHTML='<div class="missionhead">MISSIONS / 任務</div><div class="missiongrid">'+main+side+'</div>'
+}
 function render(){
  if(!S)return;syncAbilityTag();const s=S.session,ts=[...S.turns].sort((a,b)=>a.turn_no-b.turn_no),t=ts[ts.length-1];
  $('gameName').textContent=s.title||'霧港試煉';$('turnLabel').textContent='第 '+(s.turn_no||0)+' 回合';$('topProgress').style.width=Math.max(0,Math.min(100,s.progress||0))+'%';$('progressText').textContent=(s.progress||0)+'%';$('timeText').textContent='時間 '+(s.time||'—');
+ renderBrief();renderInlineMissions();
  let body='';if(t){body+='<div class="'+(t.turn_no===0?'opening':'')+'">'+esc(t.narrative||'')+'</div>';if(DEBUG&&t.resolution)body+='<div class="testline">TEST // '+esc(t.resolution.outcome)+' · d100 '+esc(t.resolution.roll)+' · danger '+esc(s.danger)+' · '+esc((t.resolution.tags||[]).join(' / '))+'</div>'}
  $('narrative').innerHTML=body;
  Q=S.choices||[];const letters=['A','B','C','D'];$('actionCards').innerHTML=Q.slice(0,4).map((c,i)=>'<button class="actioncard" onclick="quick('+i+')"><div class="cardhead"><span class="letter">'+letters[i]+'</span><span>→ 行動</span></div><div class="cardtext">'+esc(c.input||c.label)+'</div></button>').join('');

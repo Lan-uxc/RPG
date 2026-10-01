@@ -707,7 +707,10 @@ async function runNarratorAgent(args:{
   player_input:args.input,
   intent:args.kind,
   time:args.w.time,
+  current_scene_key:args.w.current_scene_key||'',
   location:args.w.location,
+  state_delta:args.facts,
+  visible_npcs:args.npcs.filter((n:any)=>n.scene_key===(args.w.current_scene_key||'')&&!n.state?.missing&&n.state?.location_known!==false).map(compactNpc),
   world_phase:worldBand(args.w.time_min),
   objective:args.w.objective,
   danger:args.w.danger,
@@ -728,6 +731,8 @@ async function runNarratorAgent(args:{
   type:'object',additionalProperties:false,required:['narrative','choices'],
   properties:{
    narrative:{type:'string'},
+   scene_summary:{type:'string'},
+   mission_updates:{type:'array',items:{type:'string'}},
    choices:{
     type:'array',minItems:4,maxItems:4,
     items:{
@@ -745,7 +750,7 @@ async function runNarratorAgent(args:{
   '正文規則：',
   '1. 不要重複玩家輸入；禁止「你採取的行動是」「判定成功」「系統不允許」「上一回合」等引擎語言。',
   '2. 必須自然呈現行動過程、環境反應、人物反應／對話、可觀察新資訊、真實後果，以及下一個正在形成的問題。',
-  '3. 一般回合約 400～700 個中文字。重大轉折、能力使用、人物衝突、戰鬥可到 700～1000 字。極小動作才可低於 300 字。',
+  '3. 開場約 700～1200 個中文字；一般回合約 450～900 字；只有純確認或極小動作才可為 250～450 字。',
   '4. 不要刻意把每回合寫成同樣長；依戲劇重量決定篇幅。',
   '5. 有限視角。玩家不知道的事不能直接宣布，只能透過眼前可觀察線索呈現。',
   '6. NPC 不是固定站點。可讓他們同時行動，但不得違反規則引擎已確定的狀態。',
@@ -779,7 +784,7 @@ async function runNarratorAgent(args:{
   input:String(x.input||'').slice(0,320)
  }))
  if(normalized.some((x:any)=>!x.input))return null
- return{narrative:String(parsed.narrative).trim(),choices:normalized,model:'gpt-5.6-sol'}
+ return{narrative:String(parsed.narrative).trim(),choices:normalized,scene_summary:String(parsed.scene_summary||'').slice(0,360),mission_updates:Array.isArray(parsed.mission_updates)?parsed.mission_updates.map((x:any)=>String(x).slice(0,240)).slice(0,4):[],model:'gpt-5.6-sol'}
 }
 
 async function writeAgentRun(sessionId:string|undefined,turnNo:number|undefined,role:string,model:string,reasoning:string,status:string,inputSummary:string,outputSummary:string,metadata:any={}){
@@ -829,7 +834,7 @@ async function payload(s:any){
  return{session:{
   session_code:s.session_code,title:s.title,status:s.status,current_scene_key:sceneKey,
   scene_name:place?.name||locationLabel(w),scene_desc:place?.description||'1944 年 6 月 6 日，奧馬哈灘頭與其內陸正在持續演變。',
-  scene_metadata:place?.metadata||{},turn_no:s.turn_no,hp:s.hp,stamina:s.stamina,focus:s.focus,time:w.time,danger:w.danger,
+  scene_metadata:place?.metadata||{},scene_summary:w.narrative_scene_summary||'',mission_updates:w.narrative_mission_updates||[],turn_no:s.turn_no,hp:s.hp,stamina:s.stamina,focus:s.focus,time:w.time,danger:w.danger,
   objective:w.objective,progress:w.day_progress||0,stage:0,playerName:w.player?.name,ability:w.player?.ability,
   origin:'從盟軍登陸艇中的臨時補充兵開始；立場、忠誠與行動路線不鎖定。',worldBand:worldBand(w.time_min),worldBandLabel:({approach:'登陸前',beach_chaos:'灘頭混亂',breakout:'突破形成',highground:'高地與出口',inland:'樹籬與農道',afternoon:'內陸戰鬥',evening:'傍晚收束'} as any)[worldBand(w.time_min)]||worldBand(w.time_min),threads:visibleThreads(w)
  },turns:tr.data||[],npcs,inventory:ir.data||[],memories:mr.data||[],choices:(Array.isArray(w.offered_choices)&&w.offered_choices.length===4)?w.offered_choices:freshChoices({...w,current_scene_key:sceneKey},nr.data||[],routes),aiConfigured:!!(await getAIKey()),agentModels:{director:'GPT-5.6 Sol / high',narrator:'GPT-5.6 Sol / high',coding:'Codex CLI + ChatGPT 登入（Samsung/Hermes）',art:'GPT-Image-2'}}
@@ -940,6 +945,8 @@ async function act(s:any,input0:string,tags0:any[]){
  })
  const narrative=agents.narrator?.narrative||notes.join('\n\n')
  if(agents.director?.continuity_note)w.ai_director_note=String(agents.director.continuity_note).slice(0,500)
+ if(agents.narrator?.scene_summary)w.narrative_scene_summary=agents.narrator.scene_summary
+ if(agents.narrator?.mission_updates?.length)w.narrative_mission_updates=agents.narrator.mission_updates
  w.offered_choices=status==='active'?(agents.narrator?.choices||fallbackChoices):[]
  rememberChoiceKeys(w,w.offered_choices)
  const next=s.turn_no+1
