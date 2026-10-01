@@ -26,14 +26,19 @@
 
 ## Coding Agent
 
-Coding Agent 在 Samsung / Hermes 環境以 Hermes 內建 OpenAI Codex provider + ChatGPT 登入執行，不使用 OpenAI API coding route。
+Coding Agent 直接由 Samsung 上的 Hermes 執行，模型來源是 Hermes 內建的 OpenAI Codex OAuth provider。
+
+不需要另外安裝 Codex CLI，也不要執行 `codex exec`。
 
 典型流程：
 
 ```bash
+cd ~/RPG
 git pull
-codex exec "閱讀 AGENTS.md。完成指定修正，保留現有玩家資料，修改後執行測試並回報 git diff。"
+git status
 git diff
 ```
 
-除非使用者明確要求，Codex 不應自動 push production deployment。
+Hermes 應先閱讀本檔與相關 docs，再直接使用目前 Codex provider 分析與修改 repository。
+
+除非使用者明確要求，Hermes 不應自行部署 production。
