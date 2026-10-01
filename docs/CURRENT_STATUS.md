@@ -50,3 +50,12 @@ Live player data remains only in Supabase and is intentionally excluded from Git
 Director / Narrator API integration exists in backend source but requires an explicitly configured OpenAI API key. If no key is configured, deterministic fallback remains active.
 
 Art generation is also API-dependent and separate from Hermes repository maintenance.
+
+
+## Database separation
+
+The connected Supabase application database was reset on 2026-10-01 to an RPG-only state.
+
+Current RPG gameplay tables start empty. Former town simulation tables, resident data, town event/activity data, resident secrets, and the town world-advance cron/function were removed.
+
+See `docs/DATABASE.md`.
