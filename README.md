@@ -9,7 +9,7 @@
 - **Database**：Supabase Postgres
 - **世界規則**：deterministic rule engine，先決定不可被 LLM 改寫的硬事實
 - **Director / Narrator**：規劃為 GPT-5.6 Sol / high reasoning
-- **Coding Agent**：Samsung / Hermes 上的 Codex CLI + ChatGPT 登入
+- **Coding Agent**：Samsung 上的 Hermes Agent + OpenAI Codex OAuth provider
 - **Art Agent**：按需圖片生成
 - **正式玩家資料**：只存在 Supabase，不提交 GitHub
 
@@ -62,7 +62,7 @@ AGENTS.md
 Telegram
   → Hermes Agent
   → git pull
-  → Codex CLI（Sign in with ChatGPT）
+  → Hermes（OpenAI Codex OAuth provider）
   → 修改 / 測試
   → git diff
   → commit / push
