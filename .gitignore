@@ -1,0 +1,34 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+credentials/
+auth.json
+
+# local runtime
+node_modules/
+.DS_Store
+.cache/
+.tmp/
+tmp/
+dist/
+coverage/
+
+# Codex / Hermes local state
+.codex/
+.hermes/
+.termux/
+*.log
+
+# exported live player data
+backups/live-data/
+exports/
+player-data/
+sessions/
+
+# editor
+.vscode/
+.idea/
