@@ -636,14 +636,18 @@ async function runDirectorAgent(args:{
  if(!key)return null
  const schema={
   type:'object',additionalProperties:false,
-  required:['scene_goal','dramatic_pressure','npc_focus','must_preserve','must_not_invent','choice_axes','continuity_note'],
+  required:['scene_goal','dramatic_pressure','pressure_source','npc_actions','new_observable_information','consequences_to_emphasize','must_preserve','must_not_invent','choice_axes','pacing','continuity_note'],
   properties:{
    scene_goal:{type:'string'},
    dramatic_pressure:{type:'string'},
-   npc_focus:{type:'array',minItems:0,maxItems:4,items:{type:'string'}},
+   pressure_source:{type:'string'},
+   npc_actions:{type:'array',minItems:0,maxItems:4,items:{type:'object',additionalProperties:false,required:['npc_key','action'],properties:{npc_key:{type:'string'},action:{type:'string'}}}},
+   new_observable_information:{type:'array',items:{type:'string'}},
+   consequences_to_emphasize:{type:'array',items:{type:'string'}},
    must_preserve:{type:'array',items:{type:'string'}},
    must_not_invent:{type:'array',items:{type:'string'}},
    choice_axes:{type:'array',minItems:4,maxItems:4,items:{type:'string'}},
+   pacing:{type:'string',enum:['quiet','tense','urgent','combat','aftermath']},
    continuity_note:{type:'string'}
   }
  }
@@ -651,7 +655,9 @@ async function runDirectorAgent(args:{
   player_input:args.input,
   intent:args.kind,
   time:args.w.time,
+  current_scene_key:args.w.current_scene_key||'',
   location:args.w.location,
+  visible_npcs:args.npcs.filter((n:any)=>n.scene_key===(args.w.current_scene_key||'')&&!n.state?.missing&&n.state?.location_known!==false).map(compactNpc),
   world_phase:worldBand(args.w.time_min),
   objective:args.w.objective,
   danger:args.w.danger,
@@ -669,16 +675,13 @@ async function runDirectorAgent(args:{
  const developer=[
   '你是原創無限流歷史 RPG 的 Director Agent。',
   '你只負責分析「下一個小說場景應該如何自然成立」，不要寫小說正文。',
-  '規則引擎提供的 deterministic_facts / deterministic_result 是硬事實，不能修改。',
-  '請保持有限視角，不得宣布玩家無法得知的真相。',
-  'NPC 必須依 goal、fear、bottom_line、resource 與既有關係自主行動。',
-  '歷史 NPC 不會因口音、服裝或緊張方式推斷任何人來自不同時空。',
-  '倖存者之間只能靠可觀察線索懷疑或確認。',
-  '血裔保留人格、記憶、立場、自由意志，不會自動服從。',
-  '不要替玩家做尚未輸入的重大選擇。',
-  '不要為了戲劇性硬製造背叛；衝突應來自目標、恐懼、情報、利益或底線差異。',
-  'choice_axes 請給四個彼此不同的行動方向，例如人物、情報、移動、資源／救援；只描述方向，不直接替玩家選。',
-  'continuity_note 是下一回合可沿用的短備忘，不得把尚未發生的事寫成既定事實。'
+  '規則引擎提供的 deterministic_facts / deterministic_result 是硬事實，不能修改；database/world state 次之，Director 只能在其上規劃。',
+  'npc_actions 僅能使用 context.npcs 中既有 npc_key；依 goal、fear、bottom_line、resource、trust、tension、scene_key、status 做 0～4 個合理主動行動。不得瞬移、跨場景直接互動、讀心、擅自死亡、背叛或自動服從。',
+  'new_observable_information 只能是有限視角下玩家目前可見、可聽、可合理推斷的線索，不能宣布敵軍計畫、真身、未確認死亡、未發現道路或未來事件。',
+  'must_preserve 必列 deterministic 結果、時間、位置、傷勢、NPC 既有狀態與 open threads；must_not_invent 必列不可新增的人物、道路、場景、物品、死亡、瞬間結案。',
+  '不要替玩家做尚未輸入的重大選擇，不要為戲劇性強制背叛，也不要把 open thread 或故事拉回預設劇情。',
+  'choice_axes 固定給四個彼此不同且當下可行的方向：人物、移動／位置、情報／觀察、資源／救援／戰術；需符合 route 與 scene。',
+  'pacing 只能是 quiet、tense、urgent、combat、aftermath。continuity_note 是下一回合短備忘，不得把尚未發生的事寫成既定事實。'
  ].join('\n')
  return await openAIResponse(key,{
   model:'gpt-5.6-sol',
@@ -744,16 +747,16 @@ async function runNarratorAgent(args:{
  }
  const developer=[
   '你是原創無限流 RPG 的 Narrator Agent，使用繁體中文寫小說。',
-  'Director Agent 已提供場景計畫，但規則引擎的 deterministic_facts / deterministic_result 才是最高優先硬事實。',
+  '事實優先順序不可倒置：1 deterministic engine facts，2 database/world state，3 Director plan，4 你的文學表現。高層不得推翻低層。deterministic_result 只能轉化後果，不能原句貼入正文。',
   '你的任務不是回報遊戲結果，而是把這一回合寫成能接在上一頁後面直接閱讀的小說場景。',
   '',
   '正文規則：',
-  '1. 不要重複玩家輸入；禁止「你採取的行動是」「判定成功」「系統不允許」「上一回合」等引擎語言。',
+  '1. 不要重複玩家輸入；禁止「你採取的行動是」「判定成功」「判定失敗」「系統不允許」「根據規則」「上一回合」「任務觸發」「事件線推進」「玩家選擇了」等引擎語言。',
   '2. 必須自然呈現行動過程、環境反應、人物反應／對話、可觀察新資訊、真實後果，以及下一個正在形成的問題。',
   '3. 開場約 700～1200 個中文字；一般回合約 450～900 字；只有純確認或極小動作才可為 250～450 字。',
   '4. 不要刻意把每回合寫成同樣長；依戲劇重量決定篇幅。',
-  '5. 有限視角。玩家不知道的事不能直接宣布，只能透過眼前可觀察線索呈現。',
-  '6. NPC 不是固定站點。可讓他們同時行動，但不得違反規則引擎已確定的狀態。',
+  '5. 有限視角。不可透露玩家看不到的敵軍計畫、遠端 NPC 心理、未發現道路、NPC 真正身分、未確認死亡或未發生未來；只能透過當前可見、聲音、通訊、他人轉述或 thread 線索呈現。',
+  '6. NPC 不是固定站點。同場景才可直接對話、碰觸、協助或衝突；遠端 NPC 只能間接影響。不得違反 scene_key、位置、傷勢與既定狀態。',
   '7. 歷史 NPC 不會推斷異時空；血裔不自動忠誠；倖存者辨識沒有超自然標記。',
   '8. 避免 recent_turns 已用過的開頭、結尾、環境句與比喻。',
   '9. 失敗也要留下新位置、新情報、人物反應、失去機會或成本，不能把場景重置。',
@@ -784,6 +787,8 @@ async function runNarratorAgent(args:{
   input:String(x.input||'').slice(0,320)
  }))
  if(normalized.some((x:any)=>!x.input))return null
+ const semantic=new Set(normalized.map((x:any)=>choiceSemanticKey(x))),axes=new Set(normalized.map((x:any)=>actionKind(x.input,[],args.w.player?.ability)))
+ if(semantic.size<4||axes.size<3)return null
  return{narrative:String(parsed.narrative).trim(),choices:normalized,scene_summary:String(parsed.scene_summary||'').slice(0,360),mission_updates:Array.isArray(parsed.mission_updates)?parsed.mission_updates.map((x:any)=>String(x).slice(0,240)).slice(0,4):[],model:'gpt-5.6-sol'}
 }
 
@@ -796,6 +801,18 @@ async function writeAgentRun(sessionId:string|undefined,turnNo:number|undefined,
    completed_at:new Date().toISOString()
   })
  }catch{}
+}
+
+function deterministicFallbackNarrative(args:{kind:string,w:any,npcs:any[],facts:string[],short:string,status:string}){
+ const local=args.npcs.filter((n:any)=>n.scene_key===args.w.current_scene_key&&!n.state?.missing&&n.state?.location_known!==false)
+ const threads=visibleThreads(args.w).filter((t:any)=>t.status==='open')
+ const phase:any={move:'你把注意力放在眼前可通行的方向上，先確認掩護與落腳點，再讓身體跟上判定後留下的空間。',follow:'你沒有把距離交給運氣，而是盯住前方留下的動線，隨時準備在局勢改變時停下。',talk:'你把話說出口之前先看清對方的手、呼吸與周圍能聽見的人；此刻每一句話都會留下位置。',search:'你沒有急著替那些痕跡命名，只把能碰到、能辨認、能帶走的細節逐一分開。',stealth:'你壓低身形與聲響，把下一步交給掩護、距離和還沒被驚動的空隙。',combat:'你先處理眼前最迫切的威脅，沒有把任何尚未發生的勝利當成事實。'}
+ const process=phase[args.kind]||'你把行動收斂成眼前能承擔的一步，讓世界以已經存在的條件回應。'
+ const facts=(args.facts||[]).filter(Boolean).slice(-5).join('　')||args.short
+ const npc=local.length?'同一處場景裡，'+local.slice(0,2).map((n:any)=>n.name+'仍在'+String(n.status||'應對局勢')).join('；')+'。他們有自己的目標與限制，沒有任何一人因為你的動作就自動站到你這邊。':'周圍沒有能被確認就在你身邊的人；遠處的動靜只能當成訊號，不能替代親眼看見的事實。'
+ const pressure=threads.length?'尚未收束的「'+threads[0].title+'」仍壓在這段時間裡。'+(threads[0].notes?.slice(-1)[0]||'它沒有因為一個動作自動結束。'):'危險度仍在 '+String(args.w.danger??'未知')+'。眼前留下的空間不是安全，只是下一個決定尚未被做出。'
+ const continuity='時間、位置、體力、手上的物資與已經發生的後果都沒有被收回。你能依它們再試一次、換一種方法，或承擔放下其中一件事的代價；世界不會替你把局面重置。下一次呼吸之後，能改變局面的仍是你在場、能看見且願意承擔的那一步。'
+ return [process,'環境沒有替任何人停下來。'+facts,npc,pressure,continuity].join('\n\n')
 }
 
 async function runAgentTurn(args:{
@@ -943,7 +960,7 @@ async function act(s:any,input0:string,tags0:any[]){
   input,kind,w,npcs:freshNpcs,recent:recent||[],facts:notes,short:result.short,
   fallbackChoices,status,sessionId:s.id,turnNo:s.turn_no+1
  })
- const narrative=agents.narrator?.narrative||notes.join('\n\n')
+ const narrative=agents.narrator?.narrative||deterministicFallbackNarrative({kind,w,npcs:freshNpcs,facts:notes,short:result.short,status})
  if(agents.director?.continuity_note)w.ai_director_note=String(agents.director.continuity_note).slice(0,500)
  if(agents.narrator?.scene_summary)w.narrative_scene_summary=agents.narrator.scene_summary
  if(agents.narrator?.mission_updates?.length)w.narrative_mission_updates=agents.narrator.mission_updates
