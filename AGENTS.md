@@ -1,6 +1,6 @@
 # AGENTS.md
 
-這個 repository 由 Hermes / Codex CLI / ChatGPT 協作維護。
+這個 repository 由 Hermes / Hermes 內建 OpenAI Codex provider / ChatGPT 協作維護。
 
 ## 最高優先規則
 
@@ -26,7 +26,7 @@
 
 ## Coding Agent
 
-Coding Agent 在 Samsung / Hermes 環境以 Codex CLI + ChatGPT 登入執行，不使用 OpenAI API coding route。
+Coding Agent 在 Samsung / Hermes 環境以 Hermes 內建 OpenAI Codex provider + ChatGPT 登入執行，不使用 OpenAI API coding route。
 
 典型流程：
 
