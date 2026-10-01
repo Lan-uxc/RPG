@@ -33,6 +33,11 @@ create table if not exists public.game_visual_assets (
 alter table public.game_agent_runs enable row level security;
 alter table public.game_visual_assets enable row level security;
 
+create index if not exists game_agent_runs_session_idx on public.game_agent_runs(session_id);
+
+revoke all on public.game_agent_runs from anon, authenticated;
+revoke all on public.game_visual_assets from anon, authenticated;
+
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 values ('game-assets','game-assets',true,10485760,array['image/png','image/jpeg','image/webp'])
 on conflict (id) do update
@@ -46,6 +51,9 @@ create table if not exists private.ai_setup_tokens (
   used_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+revoke all on table private.ai_setup_tokens from public, anon, authenticated;
+grant select, insert, update, delete on table private.ai_setup_tokens to service_role;
 
 create or replace function public.game_ai_setup_token_valid(p_token_hash text)
 returns boolean
