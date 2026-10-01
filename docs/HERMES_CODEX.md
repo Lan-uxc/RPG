@@ -9,61 +9,60 @@ Telegram
   ↓
 Hermes
   ↓
-local RPG git checkout
+OpenAI Codex OAuth provider
   ↓
-Hermes 內建 OpenAI Codex provider
+~/RPG
   ↓
-tests / diff / commit
+git
   ↓
 GitHub
 ```
 
 Supabase remains the live database and backend.
 
-## First-time setup
+## Current local checkout
 
-When the Samsung phone is physically available:
-
-1. Prepare Termux / Hermes.
-2. Install Git.
-3. Clone this repository.
-4. Install official Hermes 內建 OpenAI Codex provider where supported.
-5. Run Codex once and choose OpenAI Codex OAuth.
-6. Confirm Codex can read this repository.
-7. Keep credentials local; never commit them.
-
-Target checkout:
+Repository is cloned directly to:
 
 ```bash
-mkdir -p ~/smalltown
-cd ~/smalltown
-git clone https://github.com/Lan-uxc/RPG.git
-cd RPG
+~/RPG
 ```
 
-## Telegram usage after initial setup
+Remote:
 
-Example message to Hermes:
+```text
+https://github.com/Lan-uxc/RPG.git
+```
 
-> 進入 RPG 專案，git pull。讓 Codex 先閱讀 AGENTS.md，再檢查目前選項系統。不要動正式玩家資料。修完後執行測試並把 git diff 摘要傳給我。
+## Important
 
-Hermes should translate that into a local Codex task rather than calling an OpenAI coding API.
+Hermes already uses the OpenAI Codex OAuth provider.
 
-## Android note
+Do **not** install or depend on a separate Codex CLI for this project.
 
-Termux background execution can be interrupted by Android battery management. For persistent Telegram control, exempt Termux/Hermes from aggressive battery optimization where possible.
+The normal Telegram workflow is:
+
+> 進入 ~/RPG，先 git pull。閱讀 AGENTS.md 與相關 docs，再處理我的任務。不要動正式玩家資料。完成後回報修改內容、測試結果與 git diff 摘要。
 
 ## Sync rule
 
 Before every coding task:
+
 ```bash
+cd ~/RPG
 git pull
+git status
 ```
 
 After every coding task:
+
 ```bash
 git status
 git diff
 ```
 
-Push only after review or an explicit automation rule permits it.
+Push only when the user explicitly asks for it or when an agreed automation rule permits it.
+
+## Android note
+
+Termux background execution can be interrupted by Android battery management. Hermes should report interruptions rather than silently retry destructive operations.
