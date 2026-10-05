@@ -13,6 +13,7 @@ import { searchLoot, useConsumable } from "./loot-engine.js";
 import { searchContainer, discardLoot } from "./container-engine.js";
 import { interactEnvironment, movementBlockedByEnvironment, environmentEffects } from "./environment-engine.js";
 import { stealthAction, detectionState } from "./stealth-engine.js";
+import { resolveThreatByAction, threatsResolved } from "./threat-engine.js";
 
 function run(overrides={}) {
   return {
@@ -333,6 +334,29 @@ function run(overrides={}) {
   const s=settleAction(r,"我躲在木箱後面");
   assert.equal(s.state.stealth.active,true);
   assert.equal(s.enemyOps[0].state.mode,"unaware");
+}
+
+{
+  const sc=loadScenario("harbor_trial");
+  const enemy={key:"feral_dog",name:"野犬",alive:true,hp:45,location:"old_warehouse",state:{perception:4,detection:"unaware"}};
+  const hidden=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,stealth:{active:true,hidden:true}},enemies:[enemy]});
+  const bypass=resolveThreatByAction(hidden,"我不驚動牠，繞過野犬繼續前進");
+  assert.equal(bypass.enemyOps[0].state.threatResolution,"bypassed");
+  assert.equal(threatsResolved({...hidden,enemies:bypass.enemyOps},sc),true);
+}
+
+{
+  const harbor={...run(),scenario_id:"harbor_trial",threads:[{key:"harbor_lockdown",title:"x",status:"resolved",progress:100,state:{}}],
+    enemies:[{key:"feral_dog",name:"野犬",alive:true,hp:45,location:"old_warehouse",state:{threatResolution:"bypassed"}}]};
+  const s=evaluateSettlement(harbor);
+  assert.equal(s.complete,true); assert.equal(s.enemiesCleared,false); assert.equal(s.threatsHandled,true); assert.equal(s.reward,190);
+}
+
+{
+  const harbor={...run(),scenario_id:"harbor_trial",threads:[{key:"harbor_lockdown",title:"x",status:"resolved",progress:100,state:{}}],
+    enemies:[{key:"feral_dog",name:"野犬",alive:true,hp:45,location:"warehouse_lane",state:{mode:"delayed",blockedTurns:1}}],
+    state:{...run().state,objectStates:{warehouse_door:{open:false,barricaded:true}}}};
+  assert.equal(evaluateSettlement(harbor).complete,true);
 }
 
 console.log("engine selftest: OK");
