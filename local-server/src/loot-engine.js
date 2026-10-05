@@ -10,7 +10,7 @@ export function capacity(run){return Number(run.state?.bagCapacity||6)}
 export function searchLoot(run,input){
   if(!/搜|搜索|搜刮|翻找|檢查屍體|戰利品/.test(input))return {handled:false,ops:[],enemyOps:[],facts:[]};
   const corpse=(run.enemies||[]).find(e=>!e.alive&&e.location===run.location&&!e.state?.looted);
-  if(!corpse)return {handled:true,ops:[],enemyOps:[],facts:["附近沒有尚未搜刮的敵對目標"]};
+  if(!corpse){const corpseIntent=/屍體|敵人|野犬|戰利品/.test(input);return corpseIntent?{handled:true,ops:[],enemyOps:[],facts:["附近沒有尚未搜刮的敵對目標"]}:{handled:false,ops:[],enemyOps:[],facts:[]};}
   const def=corpse.key==="feral_dog"?LOOT_CATALOG.dog_tag:null;
   if(!def)return {handled:true,ops:[],enemyOps:[{...corpse,state:{...corpse.state,looted:true}}],facts:["你完成搜索，但沒有找到值得帶走的物品"]};
   if(usedSlots(run)+def.slots>capacity(run))return {handled:true,ops:[],enemyOps:[],facts:["背包沒有足夠空間，戰利品仍留在原處"]};
