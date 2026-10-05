@@ -70,7 +70,7 @@ textarea{width:100%;min-height:58px;max-height:130px;resize:vertical;border:1px 
 </nav>
 
 <script>
-const K="rpg-local-save-v4";let s=JSON.parse(localStorage.getItem(K)||"null")||{};let currentRun=null;let worldNames={};let currentSettlement=null;
+const K="rpg-local-save-v5";let s=JSON.parse(localStorage.getItem(K)||"null")||{};let currentRun=null;let worldNames={};let currentSettlement=null;let hubData=null;
 const q=id=>document.getElementById(id);
 function e(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 function placeName(key){return worldNames[key]||key}
@@ -109,15 +109,17 @@ async function loadScenarios(){
   q("scenarioList").querySelectorAll("[data-scenario]").forEach(b=>b.onclick=()=>startScenario(b.dataset.scenario));
 }
 function renderHub(hub){
+  hubData=hub;
   const p=hub.profile||{};
   const owned=new Set((p.upgrades||[]).map(x=>x.key));
   q("hubProfile").innerHTML='<b>主神空間</b><br><small>獎勵點：'+e(p.reward_points||0)+'　完成副本：'+e(p.completed_runs||0)+'</small>'+
     ((p.upgrades||[]).length?'<br><small>永久能力：'+(p.upgrades||[]).map(x=>e(x.key)).join("、")+'</small>':'');
   q("hubShop").innerHTML=(hub.shop||[]).map(x=>{
     const isOwned=owned.has(x.key);
-    return '<div class="row"><b>'+e(x.name)+'</b>　'+e(x.cost)+' 點'+
+    const locked=(x.requires||[]).some(r=>r.type==="completed_runs"&&Number(p.completed_runs||0)<Number(r.value||0) || r.type==="upgrade"&&!owned.has(r.key));
+    return '<div class="row"><b>'+e(x.name)+'</b>　T'+e(x.tier||1)+'　'+e(x.cost)+' 點'+
       '<br><small>'+e(x.description)+'</small><br>'+
-      (isOwned?'<span class="badge done">已取得</span>':'<button class="tool" data-buy="'+e(x.key)+'">兌換</button>')+'</div>';
+      (isOwned?'<span class="badge done">已取得</span>':locked?'<span class="badge">尚未解鎖</span>':'<button class="tool" data-buy="'+e(x.key)+'">兌換</button>')+'</div>';
   }).join("")||"目前沒有可兌換項目。";
   q("hubShop").querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>buyUpgrade(b.dataset.buy));
 }
@@ -129,7 +131,14 @@ async function buyUpgrade(itemKey){
   renderHub(hub);
 }
 async function startScenario(scenarioId){
-  const r=await fetch("/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scenarioId})});
+  const gear=(hubData?.profile?.upgrades||[]).filter(x=>x.type==="equipment");
+  let loadout=[];
+  if(gear.length){
+    const names=gear.map((x,i)=>(i+1)+". "+x.key).join("\n");
+    const raw=prompt("可攜帶最多 2 件永久裝備。輸入編號，例如 1,2；留空則不帶。\n\n"+names,"");
+    if(raw!==null)loadout=[...new Set(raw.split(",").map(x=>gear[Number(x.trim())-1]?.key).filter(Boolean))].slice(0,2);
+  }
+  const r=await fetch("/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scenarioId,loadout})});
   const j=await r.json();if(!r.ok)throw Error(j.error||"session_failed");
   s={runId:j.run.id};localStorage.setItem(K,JSON.stringify(s));
   await loadWorld(j.run.scenario_id);
@@ -148,6 +157,13 @@ function render(run,recent=[]){
     ((run.state?.skills||[]).length?"<br><small>技能："+(run.state.skills||[]).map(e).join("、")+"</small>":"")+
     ((run.state?.bloodlines||[]).length?"<br><small>血統："+(run.state.bloodlines||[]).map(x=>e(x.key)+" Lv."+e(x.level)).join("、")+"</small>":"");
   q("facts").innerHTML=(run.state?.facts||[]).map(x=>'<div class="row">'+e(x)+'</div>').join("")||"尚無紀錄。";
+  if(run.status==="failed"){
+    q("settleBtn").style.display="inline-block";
+    q("settleBtn").textContent="死亡回歸";
+    q("current").textContent="本次副本已失敗。你只能返回主神空間。";
+  }else{
+    q("settleBtn").textContent="副本結算";
+  }
 }
 async function refresh(){const r=await fetch("/api/run/"+s.runId);if(r.ok){const j=await r.json();render(j.run,j.recent)}}
 async function act(action){
@@ -171,7 +187,7 @@ q("settleBtn").onclick=async()=>{
   const r=await fetch("/api/run/"+s.runId+"/settle",{method:"POST"});
   const j=await r.json();
   if(!r.ok){q("current").textContent="目前還不能結算："+(j.error||"not_ready");return}
-  q("story").textContent="副本結算完成。\n\n獲得獎勵點："+j.settlement.reward+"。\n\n你已回到主神空間。";
+  q("story").textContent=currentRun?.status==="failed"?"你從死亡後的空白中重新醒來。\n\n本次副本失敗，沒有通關獎勵；永久能力與主神裝備仍然保留。\n\n你已回到主神空間。":"副本結算完成。\n\n獲得獎勵點："+j.settlement.reward+"。\n\n你已回到主神空間。";
   q("current").textContent="副本已結算";
   localStorage.removeItem(K);s={};
   setTimeout(()=>location.reload(),900);
