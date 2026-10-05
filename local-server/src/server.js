@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   ensurePlayer, createRun, getRunForPlayer, getRecentTurns, saveTurn,
   createAuthSession, getAuthSession, deleteExpiredSessions,
-  getPlayerProfile, settleRunForPlayer, purchaseUpgrade, returnFailedRunToHub
+  getPlayerProfile, settleRunForPlayer, purchaseUpgrade, returnFailedRunToHub, sellStashItem
 } from "./db.js";
 import { settleAction, fallbackNarrative, getWorldForScenario } from "./engine.js";
 import { enqueue, narrate, getQueueStatus } from "./ollama.js";
@@ -97,6 +97,13 @@ app.post("/api/hub/purchase",requirePlayer,(req,res)=>{
       ["insufficient_reward_points","upgrade_already_owned","requirements_not_met"].includes(err.message)?409:400;
     res.status(status).json({error:err.message||"purchase_failed"});
   }
+});
+
+app.post("/api/hub/stash/sell",requirePlayer,(req,res)=>{
+  try{
+    const profile=sellStashItem(req.playerId,String(req.body?.itemKey||"").slice(0,80),req.body?.quantity||1);
+    res.json({profile});
+  }catch(err){res.status(409).json({error:err.message||"stash_sell_failed"});}
 });
 
 app.get("/api/world",(req,res)=>{
