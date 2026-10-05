@@ -107,5 +107,12 @@
   "rewards": {
     "base": 100,
     "survivalBonus": 25
+  },
+  "difficulty": 1,
+  "unlock": {
+    "completedRuns": 0
+  },
+  "death": {
+    "rewardPointLoss": 0
   }
 }
