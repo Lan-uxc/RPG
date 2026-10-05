@@ -84,7 +84,7 @@
     }
   ],
   "completion": {
-    "mode": "all_threads_resolved_and_enemies_cleared",
+    "mode": "all_threads_resolved_and_threats_handled",
     "requiredThreads": [
       "harbor_lockdown"
     ]
