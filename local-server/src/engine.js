@@ -62,7 +62,8 @@ export function settleAction(run,action){
   }
   const marketThread=run.threads.find(t=>t.key==="market_anomaly");
 
-  if(location==="old_market" && intent.type==="investigate" && /屋頂|暗色|裂痕|命痕/.test(input)){
+  const marketTerminal=["resolved","failed","abandoned"].includes(marketThread?.status);
+  if(!marketTerminal && location==="old_market" && intent.type==="investigate" && /屋頂|暗色|裂痕|命痕/.test(input)){
     if(!facts.includes("老市場屋頂異常並非光影錯覺"))facts.push("老市場屋頂異常並非光影錯覺");
     threadOps.push({
       key:"market_anomaly",title:"老市場屋頂的暗色紋路",status:"active",
@@ -71,7 +72,7 @@ export function settleAction(run,action){
     });
   }
 
-  if(location==="old_market" && intent.type==="investigate" && /深入|爬上|靠近|追查|檢查屋頂/.test(input) && (marketThread?.progress||0)>=1){
+  if(!marketTerminal && location==="old_market" && intent.type==="investigate" && /深入|爬上|靠近|追查|檢查屋頂/.test(input) && (marketThread?.progress||0)>=1){
     if(!facts.includes("暗色紋路會對附近金屬產生極輕微偏移"))facts.push("暗色紋路會對附近金屬產生極輕微偏移");
     threadOps.push({
       key:"market_anomaly",title:"老市場屋頂的暗色紋路",status:"resolved",progress:100,
@@ -81,7 +82,8 @@ export function settleAction(run,action){
   }
 
   const harborThread=run.threads.find(t=>t.key==="harbor_lockdown");
-  if(run.scenario_id==="harbor_trial" && intent.type==="investigate" && /封鎖|倉庫|聲音|痕跡|檢查|調查/.test(input)){
+  const harborTerminal=["resolved","failed","abandoned"].includes(harborThread?.status);
+  if(!harborTerminal && run.scenario_id==="harbor_trial" && intent.type==="investigate" && /封鎖|倉庫|聲音|痕跡|檢查|調查/.test(input)){
     const nextProgress=Math.max(25,(harborThread?.progress||0)+35);
     const canResolve=(location==="old_warehouse" || location==="seawall") && nextProgress>=70;
     threadOps.push({
