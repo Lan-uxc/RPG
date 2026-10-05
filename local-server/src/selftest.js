@@ -442,7 +442,7 @@ function run(overrides={}) {
   const listed=createListing(a,{itemKey:"test_relic",quantity:1,unitPrice:120}); const listing=listed.listings.find(x=>x.seller_id===a);
   buyListing(b,listing.id); assert.equal(db.prepare("SELECT quantity FROM player_stash WHERE player_id=? AND item_key='test_relic'").get(b).quantity,1);
   publishIntel(a,{title:"測試情報",body:"只有購買後才應取得內容",price:30}); const intel=citySnapshot(a); const intelId=db.prepare("SELECT id FROM city_intel WHERE seller_id=? ORDER BY created_at DESC").get(a).id;
-  assert.equal(acquireIntel(b,intelId).intel.body,"只有購買後才應取得內容");
+  assert.equal(acquireIntel(b,intelId).intelDetail.body,"只有購買後才應取得內容");
   befriend(a,b); assert.equal(citySnapshot(a).relations[0].status,"friends");
   challengePvp(a,b); const duel=citySnapshot(b).pvp.find(x=>x.challenger_id===a); respondPvp(b,duel.id,true); assert.equal(citySnapshot(a).pvp.find(x=>x.id===duel.id).status,"accepted");
 }
