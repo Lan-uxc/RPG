@@ -19,7 +19,6 @@ import { publicShopItems } from "./shop-catalog.js";
 import { citySnapshot, buyProperty, openBusiness, befriend, challengePvp, respondPvp } from "./city-engine.js";
 import { marketSnapshot, createListing, buyListing, publishIntel, acquireIntel } from "./city-market.js";
 import { directAttack, wantedState, publicWanted } from "./city-law.js";
-import { directAttack, wantedState, publicWanted } from "./city-law.js";
 
 const app=express();
 const PORT=Number(process.env.PORT||3000);
