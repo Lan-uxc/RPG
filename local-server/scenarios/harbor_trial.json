@@ -187,5 +187,41 @@
         "cover": false
       }
     }
-  ]
+  ],
+  "investigation": {
+    "thread": "harbor_lockdown",
+    "threshold": 3,
+    "resolution": "不同來源的證據已足以重建港區封鎖原因",
+    "evidence": [
+      {
+        "key": "gate_notice",
+        "location": "harbor_gate",
+        "match": "公告|封鎖|告示|入口|檢查",
+        "weight": 1,
+        "fact": "入口封鎖公告的時間與官方例行管制不一致"
+      },
+      {
+        "key": "warehouse_tracks",
+        "location": "old_warehouse",
+        "match": "痕跡|搬運|地面|倉庫|調查|檢查",
+        "weight": 2,
+        "fact": "舊倉庫留下近期急促搬運與拖行的痕跡"
+      },
+      {
+        "key": "seawall_marks",
+        "location": "seawall",
+        "match": "痕跡|海面|防波堤|調查|檢查|聲音",
+        "weight": 2,
+        "fact": "防波堤的刮痕與夜間異常活動時間吻合"
+      },
+      {
+        "key": "phone_recording",
+        "location": "seawall",
+        "match": "手機|錄音|錄影|拍攝|記錄",
+        "requiresItem": "phone",
+        "weight": 1,
+        "fact": "手機記錄到規律金屬碰撞聲及其來源方向"
+      }
+    ]
+  }
 }
