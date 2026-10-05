@@ -20,6 +20,9 @@ export function resolveEnemyCombat(run,intent,input){
   else if(/刀|砍/.test(input)) damage=25;
   else if(/拳|踢|徒手|打/.test(input)) damage=12;
 
+  const gearBonus=(run.state?.equipment||[]).reduce((n,x)=>n+Number(x.combatBonus||0),0);
+  if(gearBonus>0 && /刀|砍|攻擊|打|刺/.test(input)) damage+=gearBonus;
+
   const hp=Math.max(0,Number(target.hp||0)-damage);
   const alive=hp>0;
   const updated={...target,hp,alive};
