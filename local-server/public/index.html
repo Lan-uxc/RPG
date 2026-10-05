@@ -167,7 +167,27 @@ async function showCity(){
  '<div class="city-row"><b>通緝榜</b><br>'+((w.wanted||[]).map(x=>e(x.player_id)+"　賞金 "+e(x.bounty)).join("<br>")||"目前無公開通緝")+'</div>'+
  '<div class="city-row"><b>競技場</b><br>合法競技預設不致死；賭注與特殊條款需雙方同意。生死戰必須在契約中明確寫入。</div>';
 }
-q("showStages").onclick=()=>{openDrawer();q("hubShop").innerHTML="";q("cityPanel").innerHTML=""};
+async function showStages(){
+  openDrawer();
+  q("hubProfile").innerHTML="";
+  q("hubShop").innerHTML="";
+  q("cityPanel").innerHTML="";
+  q("scenarioList").innerHTML='<div class="row">正在讀取副本…</div>';
+  try{
+    const r=await fetch("/api/scenarios",{cache:"no-store"});
+    const j=await r.json();
+    if(!r.ok)throw Error(j.error||"scenario_load_failed");
+    q("scenarioList").innerHTML=(j.scenarios||[]).map(x=>'<button class="sbtn" style="width:100%;margin:5px 0" '+(x.unlocked?'data-scenario="'+e(x.id)+'"':'disabled')+'><b>'+e(x.name)+'</b>　難度 '+e(x.difficulty||1)+'<br><small>'+(x.unlocked?e(x.id):'未解鎖・需完成 '+e(x.unlock?.completedRuns||0)+' 次副本')+'</small></button>').join("")||'<div class="row">目前沒有可進入的副本。</div>';
+    q("scenarioList").querySelectorAll("[data-scenario]").forEach(b=>b.onclick=async()=>{
+      b.disabled=true;
+      try{await startScenario(b.dataset.scenario)}
+      catch(err){b.disabled=false;alert("無法進入副本："+(err?.message||err))}
+    });
+  }catch(err){
+    q("scenarioList").innerHTML='<div class="row">副本讀取失敗：'+e(err?.message||err)+'</div>';
+  }
+}
+q("showStages").onclick=showStages;
 q("exchangeBtn").onclick=()=>{openDrawer();q("scenarioList").innerHTML="";q("cityPanel").innerHTML="";renderHub(hubData||{profile:{},shop:[]})};
 q("cityBtn").onclick=showCity;
 document.querySelectorAll("[data-home]").forEach(b=>b.onclick=()=>{openDrawer();q("scenarioList").innerHTML="";q("hubShop").innerHTML="";q("cityPanel").innerHTML='<div class="city-row"><b>'+e(b.querySelector("b")?.textContent||"系統")+'</b><br>此模組將沿用主神空間規則與永久角色資料。</div>'});
