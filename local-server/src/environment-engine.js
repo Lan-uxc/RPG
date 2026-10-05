@@ -29,3 +29,15 @@ export function movementBlockedByEnvironment(run,scenario,destination){
   }
   return null;
 }
+
+export function environmentEffects(run,scenario){
+  const states=run.state?.objectStates||{},local=localObjects(scenario,run.location);
+  let coverReduction=0,dark=false,barricade=false,noise=Number(run.state?.noise||0);
+  for(const o of local){
+    const s={...o.initial,...states[o.key]};
+    if(o.type==="cover"&&s.cover)coverReduction+=6;
+    if(o.type==="light"&&!s.on)dark=true;
+    if(o.type==="door"&&s.barricaded)barricade=true;
+  }
+  return {coverReduction:Math.min(12,coverReduction),dark,barricade,noise};
+}
