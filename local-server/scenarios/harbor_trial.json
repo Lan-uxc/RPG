@@ -137,5 +137,54 @@
         }
       ]
     }
+  ],
+  "objects": [
+    {
+      "key": "warehouse_door",
+      "name": "舊倉庫鐵門",
+      "type": "door",
+      "location": "old_warehouse",
+      "match": "門|鐵門|入口",
+      "connects": [
+        "warehouse_lane",
+        "old_warehouse"
+      ],
+      "initial": {
+        "open": true,
+        "locked": false,
+        "barricaded": false
+      }
+    },
+    {
+      "key": "warehouse_window",
+      "name": "舊倉庫側窗",
+      "type": "window",
+      "location": "old_warehouse",
+      "match": "窗|玻璃",
+      "initial": {
+        "broken": false
+      }
+    },
+    {
+      "key": "warehouse_light",
+      "name": "倉庫頂燈",
+      "type": "light",
+      "location": "old_warehouse",
+      "match": "燈|照明",
+      "initial": {
+        "on": false
+      }
+    },
+    {
+      "key": "cargo_crate",
+      "name": "木製貨箱",
+      "type": "cover",
+      "location": "old_warehouse",
+      "match": "貨箱|木箱|箱子|掩體",
+      "initial": {
+        "moved": false,
+        "cover": false
+      }
+    }
   ]
 }
