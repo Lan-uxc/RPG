@@ -4,7 +4,9 @@ import { parseAction } from "./action-parser.js";
 import { tradeOps } from "./transactions.js";
 import { socialConsequence, autonomousNpcTick } from "./npc-engine.js";
 import { resolveCombat } from "./combat-engine.js";
-import { loadScenario } from "./scenario-loader.js";
+import { loadScenario, listScenarios } from "./scenario-loader.js";
+import { discloseNpcInformation } from "./npc-disclosure.js";
+import { resolveEnemyCombat } from "./enemy-engine.js";
 
 function run(overrides={}) {
   return {
@@ -24,6 +26,9 @@ function run(overrides={}) {
   const sc=loadScenario("town_origin");
   assert.equal(sc.start.location,"town_edge");
   assert.equal(getWorldForScenario("town_origin").old_market.name,"老市場");
+  const harbor=loadScenario("harbor_trial");
+  assert.equal(harbor.start.location,"harbor_gate");
+  assert.ok(listScenarios().some(x=>x.id==="harbor_trial"));
 }
 
 {
@@ -87,12 +92,32 @@ function run(overrides={}) {
 
 {
   const r=run({
+    scenario_id:"harbor_trial",
+    location:"warehouse_lane",
+    enemies:[{key:"feral_dog",name:"受驚的野犬",alive:true,hp:45,location:"warehouse_lane",state:{}}]
+  });
+  const e=resolveEnemyCombat(r,parseAction("我用刀砍野犬"),"我用刀砍野犬");
+  assert.equal(e.enemyOps[0].hp,20);
+  const r2={...r,enemies:e.enemyOps};
+  const e2=resolveEnemyCombat(r2,parseAction("我再用刀砍"),"我再用刀砍");
+  assert.equal(e2.enemyOps[0].alive,false);
+}
+
+{
+  const r=run({
     location:"old_market",
     npcs:[{
       key:"market_keeper",name:"林伯",alive:true,relation:0,
-      state:{location:"old_market",memories:[],goal:"守住市場"}
+      state:{
+        location:"old_market",memories:[],goal:"守住市場",
+        knowledge:["知道屋頂異常不是第一次出現","知道凌晨有人聽見金屬摩擦聲"]
+      }
     }]
   });
+  const d=discloseNpcInformation(r,parseAction("我問林伯屋頂異常"),"我問林伯屋頂異常");
+  assert.equal(d.disclosed.length,1);
+  assert.ok(d.npcOps[0].state.memories.some(x=>x.kind==="disclosed"));
+
   const ops=autonomousNpcTick(r,"old_market",8);
   assert.equal(ops.length,1);
   assert.ok(ops[0].state.lastAutonomousAction);
