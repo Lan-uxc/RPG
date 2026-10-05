@@ -14,6 +14,7 @@ import { searchContainer, discardLoot } from "./container-engine.js";
 import { interactEnvironment, movementBlockedByEnvironment, environmentEffects } from "./environment-engine.js";
 import { stealthAction, detectionState } from "./stealth-engine.js";
 import { resolveThreatByAction, threatsResolved } from "./threat-engine.js";
+import { investigateEvidence } from "./investigation-engine.js";
 
 function run(overrides={}) {
   return {
