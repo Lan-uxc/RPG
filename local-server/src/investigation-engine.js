@@ -11,8 +11,8 @@ export function investigateEvidence(run,scenario,input){
   const npcEvidence=(run.npcs||[]).filter(n=>n.alive&&n.state?.location===run.location).flatMap(n=>(n.state?.evidence||[]).map(e=>({...e,sourceNpc:n.name,location:run.location})));
   const defs=[...(scenario.investigation?.evidence||[]),...npcEvidence];
   const candidates=defs.filter(e=>!collected.has(e.key)&&matchEvidence(e,run,input));
-  const score=e=>(e.sourceNpc&&/問|詢問|交談|請教|警衛|口供/.test(input)?100:0)+(/監視|監控|畫面|攝影/.test(input)&&/camera|監視/.test(e.key+e.fact)?80:0)+(/文件|清單|貨單|紀錄/.test(input)&&/manifest|清單|文件|貨運/.test(e.key+e.fact)?80:0)+Number(e.weight||1);
-  const evidence=candidates.sort((a,b)=>score(b)-score(a))[0];
+  const sourceScore=e=>(e.sourceNpc&&/問|詢問|交談|請教|警衛|口供/.test(input)?100:0)+(/監視|監控|畫面|攝影/.test(input)&&/camera|監視/.test(e.key+e.fact)?80:0)+(/文件|清單|貨單|紀錄/.test(input)&&/manifest|清單|文件|貨運/.test(e.key+e.fact)?80:0)+Number(e.weight||1);
+  const evidence=candidates.sort((a,b)=>sourceScore(b)-sourceScore(a))[0];
   if(!evidence)return {handled:false,threadOps:[],facts:[],evidence:null};
   collected.add(evidence.key);
   const score=[...collected].reduce((n,k)=>n+Number(defs.find(e=>e.key===k)?.weight||1),0);
