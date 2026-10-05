@@ -1,0 +1,220 @@
+{
+  "id": "town_origin",
+  "name": "命痕世界：邊緣城鎮",
+  "start": {
+    "location": "town_edge",
+    "time": "08:10",
+    "hp": 100,
+    "san": 100,
+    "reward": 0,
+    "inventory": [
+      {
+        "key": "phone",
+        "name": "手機",
+        "quantity": 1,
+        "meta": {}
+      },
+      {
+        "key": "wallet",
+        "name": "錢包",
+        "quantity": 1,
+        "meta": {
+          "cash": 1200
+        }
+      },
+      {
+        "key": "bag",
+        "name": "隨身背包",
+        "quantity": 1,
+        "meta": {}
+      }
+    ]
+  },
+  "facts": [
+    "雨剛停",
+    "老市場屋頂曾出現短暫的暗色紋路"
+  ],
+  "threads": [
+    {
+      "key": "market_anomaly",
+      "title": "老市場屋頂的暗色紋路",
+      "status": "active",
+      "progress": 0,
+      "state": {}
+    }
+  ],
+  "places": {
+    "town_edge": {
+      "name": "北台灣・邊緣城鎮",
+      "routes": {
+        "old_market": 8,
+        "bus_station": 4,
+        "riverside": 14,
+        "industrial_gate": 22
+      }
+    },
+    "old_market": {
+      "name": "老市場",
+      "routes": {
+        "town_edge": 8,
+        "bus_station": 6,
+        "riverside": 12
+      }
+    },
+    "bus_station": {
+      "name": "公車站",
+      "routes": {
+        "town_edge": 4,
+        "old_market": 6,
+        "taipei_transit": 35
+      }
+    },
+    "riverside": {
+      "name": "河堤道路",
+      "routes": {
+        "town_edge": 14,
+        "old_market": 12,
+        "industrial_gate": 16
+      }
+    },
+    "industrial_gate": {
+      "name": "工業區入口",
+      "routes": {
+        "town_edge": 22,
+        "riverside": 16
+      }
+    },
+    "taipei_transit": {
+      "name": "前往台北途中",
+      "routes": {
+        "bus_station": 35,
+        "taipei_city": 45
+      }
+    },
+    "taipei_city": {
+      "name": "台北市區",
+      "routes": {
+        "taipei_transit": 45
+      }
+    }
+  },
+  "completion": {
+    "mode": "all_threads_resolved",
+    "requiredThreads": [
+      "market_anomaly"
+    ]
+  },
+  "rewards": {
+    "base": 100,
+    "survivalBonus": 25
+  },
+  "difficulty": 1,
+  "unlock": {
+    "completedRuns": 0
+  },
+  "death": {
+    "rewardPointLoss": 0
+  },
+  "npcs": [
+    {
+      "key": "market_keeper",
+      "name": "林伯",
+      "alive": true,
+      "relation": 0,
+      "location": "old_market",
+      "state": {
+        "goal": "守住老市場生意與鄰里秩序",
+        "fear": "異常引來麻煩",
+        "interests": [
+          "市場",
+          "居民",
+          "屋頂異常"
+        ],
+        "bottomLine": "不容許陌生人傷害居民",
+        "knowledge": [
+          "屋頂異常不是第一次出現",
+          "凌晨有人聽見金屬摩擦聲"
+        ],
+        "personality": "寡言務實",
+        "memories": [],
+        "schedule": [
+          {
+            "from": 5,
+            "to": 14,
+            "location": "old_market",
+            "activity": "整理攤位並觀察市場"
+          },
+          {
+            "from": 14,
+            "to": 18,
+            "location": "riverside",
+            "activity": "沿河堤送貨"
+          },
+          {
+            "from": 18,
+            "to": 24,
+            "location": "old_market",
+            "activity": "收攤並巡看市場"
+          }
+        ]
+      }
+    },
+    {
+      "key": "station_clerk",
+      "name": "陳小姐",
+      "alive": true,
+      "relation": 0,
+      "location": "bus_station",
+      "state": {
+        "goal": "維持班次與乘客服務",
+        "fear": "捲入工作外衝突",
+        "interests": [
+          "班次",
+          "旅客",
+          "鎮上消息"
+        ],
+        "bottomLine": "不偽造紀錄",
+        "knowledge": [
+          "知道往台北班次",
+          "最近有外地人詢問老市場"
+        ],
+        "personality": "有禮保守",
+        "memories": [],
+        "schedule": [
+          {
+            "from": 6,
+            "to": 18,
+            "location": "bus_station",
+            "activity": "處理班次與旅客"
+          },
+          {
+            "from": 18,
+            "to": 24,
+            "location": "town_edge",
+            "activity": "下班後返回鎮上"
+          }
+        ]
+      }
+    }
+  ],
+  "worldEvolution": [
+    {
+      "key": "market_rumor_spreads",
+      "afterTurn": 5,
+      "thread": "market_anomaly",
+      "threadStatus": "active",
+      "progress": 1,
+      "place": "old_market",
+      "fact": "市場裡開始有人低聲談論屋頂最近反覆出現的異常"
+    },
+    {
+      "key": "outsider_interest",
+      "afterTurn": 10,
+      "thread": "market_anomaly",
+      "threadStatus": "active",
+      "progress": 2,
+      "place": "bus_station",
+      "fact": "公車站有人再次打聽老市場的位置與近期異常"
+    }
+  ]
+}

@@ -1,0 +1,314 @@
+{
+  "id": "harbor_trial",
+  "name": "港區封鎖線",
+  "start": {
+    "location": "harbor_gate",
+    "time": "21:40",
+    "hp": 100,
+    "san": 100,
+    "reward": 0,
+    "inventory": [
+      {
+        "key": "phone",
+        "name": "手機",
+        "quantity": 1,
+        "meta": {}
+      },
+      {
+        "key": "wallet",
+        "name": "錢包",
+        "quantity": 1,
+        "meta": {
+          "cash": 800
+        }
+      },
+      {
+        "key": "flashlight",
+        "name": "手電筒",
+        "quantity": 1,
+        "meta": {}
+      }
+    ]
+  },
+  "facts": [
+    "港區今晚臨時封鎖",
+    "遠處偶爾傳來金屬敲擊聲"
+  ],
+  "threads": [
+    {
+      "key": "harbor_lockdown",
+      "title": "港區封鎖原因",
+      "status": "active",
+      "progress": 0,
+      "state": {}
+    }
+  ],
+  "places": {
+    "harbor_gate": {
+      "name": "港區入口",
+      "routes": {
+        "warehouse_lane": 8,
+        "seawall": 12
+      }
+    },
+    "warehouse_lane": {
+      "name": "倉庫巷道",
+      "routes": {
+        "harbor_gate": 8,
+        "old_warehouse": 10
+      }
+    },
+    "old_warehouse": {
+      "name": "舊倉庫",
+      "routes": {
+        "warehouse_lane": 10
+      }
+    },
+    "seawall": {
+      "name": "防波堤",
+      "routes": {
+        "harbor_gate": 12
+      }
+    }
+  },
+  "enemies": [
+    {
+      "key": "feral_dog",
+      "name": "受驚的野犬",
+      "hp": 45,
+      "location": "warehouse_lane",
+      "state": {
+        "hostile": true,
+        "perception": 4
+      }
+    }
+  ],
+  "completion": {
+    "mode": "all_threads_resolved_and_threats_handled",
+    "requiredThreads": [
+      "harbor_lockdown"
+    ]
+  },
+  "rewards": {
+    "base": 150,
+    "survivalBonus": 40
+  },
+  "difficulty": 2,
+  "unlock": {
+    "completedRuns": 1
+  },
+  "death": {
+    "rewardPointLoss": 25
+  },
+  "containers": [
+    {
+      "key": "warehouse_medkit",
+      "name": "牆邊急救箱",
+      "location": "old_warehouse",
+      "match": "急救|箱|櫃|醫療",
+      "items": [
+        {
+          "key": "bandage",
+          "name": "簡易繃帶",
+          "quantity": 2,
+          "value": 15,
+          "slots": 1
+        }
+      ]
+    },
+    {
+      "key": "locker_03",
+      "name": "生鏽置物櫃",
+      "location": "old_warehouse",
+      "match": "置物櫃|櫃子|鐵櫃|搜",
+      "items": [
+        {
+          "key": "calming_tablet",
+          "name": "鎮定片",
+          "quantity": 1,
+          "value": 25,
+          "slots": 1
+        },
+        {
+          "key": "anomaly_fragment",
+          "name": "命痕碎片",
+          "quantity": 1,
+          "value": 120,
+          "slots": 2
+        }
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "key": "warehouse_door",
+      "name": "舊倉庫鐵門",
+      "type": "door",
+      "location": "old_warehouse",
+      "match": "門|鐵門|入口",
+      "connects": [
+        "warehouse_lane",
+        "old_warehouse"
+      ],
+      "initial": {
+        "open": true,
+        "locked": false,
+        "barricaded": false
+      }
+    },
+    {
+      "key": "warehouse_window",
+      "name": "舊倉庫側窗",
+      "type": "window",
+      "location": "old_warehouse",
+      "match": "窗|玻璃",
+      "initial": {
+        "broken": false
+      }
+    },
+    {
+      "key": "warehouse_light",
+      "name": "倉庫頂燈",
+      "type": "light",
+      "location": "old_warehouse",
+      "match": "燈|照明",
+      "initial": {
+        "on": false
+      }
+    },
+    {
+      "key": "cargo_crate",
+      "name": "木製貨箱",
+      "type": "cover",
+      "location": "old_warehouse",
+      "match": "貨箱|木箱|箱子|掩體",
+      "initial": {
+        "moved": false,
+        "cover": false
+      }
+    }
+  ],
+  "investigation": {
+    "thread": "harbor_lockdown",
+    "threshold": 3,
+    "resolution": "不同來源的證據已足以重建港區封鎖原因",
+    "evidence": [
+      {
+        "key": "gate_notice",
+        "location": "harbor_gate",
+        "match": "公告|封鎖|告示|入口|檢查",
+        "weight": 1,
+        "fact": "入口封鎖公告的時間與官方例行管制不一致"
+      },
+      {
+        "key": "warehouse_tracks",
+        "location": "old_warehouse",
+        "match": "痕跡|搬運|地面|倉庫|調查|檢查",
+        "weight": 2,
+        "fact": "舊倉庫留下近期急促搬運與拖行的痕跡"
+      },
+      {
+        "key": "seawall_marks",
+        "location": "seawall",
+        "match": "痕跡|海面|防波堤|調查|檢查|聲音",
+        "weight": 2,
+        "fact": "防波堤的刮痕與夜間異常活動時間吻合"
+      },
+      {
+        "key": "phone_recording",
+        "location": "seawall",
+        "match": "手機|錄音|錄影|拍攝|記錄",
+        "requiresItem": "phone",
+        "weight": 1,
+        "fact": "手機記錄到規律金屬碰撞聲及其來源方向"
+      },
+      {
+        "key": "warehouse_manifest",
+        "location": "old_warehouse",
+        "match": "文件|清單|貨單|紀錄|桌上",
+        "weight": 2,
+        "fact": "倉庫貨運清單顯示一批未登記貨物在封鎖前被臨時轉移"
+      },
+      {
+        "key": "camera_record",
+        "location": "harbor_gate",
+        "match": "監視器|監控|畫面|攝影機",
+        "weight": 2,
+        "fact": "監視畫面記錄到封鎖前有人從舊倉庫方向搬運不明箱件"
+      }
+    ]
+  },
+  "npcs": [
+    {
+      "key": "dock_guard",
+      "name": "港區警衛",
+      "alive": true,
+      "relation": 0,
+      "location": "harbor_gate",
+      "state": {
+        "goal": "避免更多人進入危險區",
+        "fear": "封鎖內的異常擴大",
+        "interests": [
+          "封鎖",
+          "夜間異常"
+        ],
+        "bottomLine": "不會主動帶陌生人進危險區",
+        "knowledge": [
+          "昨晚封鎖時間比原定勤務早很多",
+          "有人從舊倉庫方向急忙撤離"
+        ],
+        "evidence": [
+          {
+            "key": "guard_testimony",
+            "match": "封鎖|昨晚|倉庫|原因|看到|發生",
+            "weight": 1,
+            "fact": "警衛證實封鎖時間異常，且有人自舊倉庫方向撤離"
+          }
+        ],
+        "memories": [],
+        "schedule": [
+          {
+            "from": 0,
+            "to": 6,
+            "location": "harbor_gate",
+            "activity": "守住夜間封鎖線"
+          },
+          {
+            "from": 6,
+            "to": 18,
+            "location": "harbor_gate",
+            "activity": "核對出入紀錄"
+          },
+          {
+            "from": 18,
+            "to": 24,
+            "location": "harbor_gate",
+            "activity": "加強封鎖巡查"
+          }
+        ],
+        "reactToActiveThread": true,
+        "threadLocation": "harbor_gate"
+      }
+    }
+  ],
+  "worldEvolution": [
+    {
+      "key": "lockdown_tightens",
+      "afterTurn": 4,
+      "thread": "harbor_lockdown",
+      "threadStatus": "active",
+      "progress": 1,
+      "place": "harbor_gate",
+      "fact": "港區封鎖在持續，入口管制比先前更嚴"
+    },
+    {
+      "key": "harbor_night_deepens",
+      "afterTurn": 8,
+      "thread": "harbor_lockdown",
+      "threadStatus": "active",
+      "progress": 2,
+      "place": "warehouse_lane",
+      "fact": "夜色加深後，倉庫區的正常人員活動明顯減少"
+    }
+  ]
+}

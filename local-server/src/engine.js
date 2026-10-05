@@ -1,0 +1,271 @@
+import { parseAction } from "./action-parser.js";
+import { ensureLocalNpcOps, socialConsequence, autonomousNpcTick } from "./npc-engine.js";
+import { discloseNpcInformation } from "./npc-disclosure.js";
+import { tradeOps } from "./transactions.js";
+import { resolveCombat } from "./combat-engine.js";
+import { resolveEnemyCombat, autonomousEnemyTick } from "./enemy-engine.js";
+import { loadScenario } from "./scenario-loader.js";
+import { searchLoot, useConsumable } from "./loot-engine.js";
+import { searchContainer, discardLoot } from "./container-engine.js";
+import { interactEnvironment, movementBlockedByEnvironment, environmentEffects } from "./environment-engine.js";
+import { stealthAction, breakStealth } from "./stealth-engine.js";
+import { resolveThreatByAction } from "./threat-engine.js";
+import { investigateEvidence } from "./investigation-engine.js";
+import { evolveWorld, evolveNpcs } from "./world-evolution.js";
+
+function addMinutes(hhmm,minutes){
+  const [h,m]=hhmm.split(":").map(Number);
+  const total=(h*60+m+minutes)%(24*60);
+  return String(Math.floor(total/60)).padStart(2,"0")+":"+String(total%60).padStart(2,"0");
+}
+function clone(v){return structuredClone(v)}
+function findPath(world,from,target){
+  if(from===target)return {next:from,cost:5,arrived:true};
+  const direct=world[from]?.routes?.[target];
+  if(direct)return {next:target,cost:direct,arrived:true};
+  const q=[[from,[]]],seen=new Set([from]);
+  while(q.length){
+    const [node,path]=q.shift();
+    for(const [n,cost] of Object.entries(world[node]?.routes||{})){
+      if(seen.has(n))continue;
+      const p=[...path,{from:node,to:n,cost}];
+      if(n===target)return {next:p[0].to,cost:p[0].cost,arrived:p.length===1,path:p};
+      seen.add(n);q.push([n,p]);
+    }
+  }
+  return null;
+}
+
+export function settleAction(run,action){
+  const scenario=loadScenario(run.scenario_id||"town_origin");
+  const world=scenario.places;
+  const input=action.trim();
+  const intent=parseAction(input);
+  const skills=new Set(run.state?.skills||[]);
+  const bloodlines=run.state?.bloodlines||[];
+  const equipment=run.state?.equipment||[];
+  const next=clone(run.state);
+  const inventoryOps=[],threadOps=[],enemyOps=[];
+  let npcOps=[];
+  let minutes=5,location=run.location,outcome="progress";
+
+  if(intent.type==="move" && intent.destination && intent.destination!==run.location){
+    const path=findPath(world,run.location,intent.destination);
+    if(path){
+      const blocker=movementBlockedByEnvironment(run,scenario,path.next);
+      if(blocker){outcome="blocked";minutes=1;}
+      else {location=path.next;minutes=path.cost;
+      if(!next.visited.includes(location))next.visited.push(location);
+      if(!path.arrived)outcome="travel_progress";
+      }
+    }else outcome="blocked";
+  }else if(intent.type==="wait"){
+    minutes=/睡/.test(input)?120:30;
+  }
+
+  const facts=[...(next.facts||[])];
+  const env=interactEnvironment({...run,location},scenario,input);
+  if(env.handled){if(env.state)next.objectStates=env.state;facts.push(...env.facts);outcome="environment_changed";
+if(/打破|砸破|破窗/.test(input)){next.noise=Math.min(100,Number(next.noise||0)+40);facts.push("破裂聲在倉庫區傳開");}
+}
+  const stealth=stealthAction({...run,state:next,location},scenario,input);
+  if(stealth.handled){Object.assign(next,stealth.state);facts.push(...stealth.facts);outcome="stealthing";}
+  if(intent.type==="combat")Object.assign(next,breakStealth(next,"combat"));
+  const environment=environmentEffects({...run,state:next,location},scenario);
+if(intent.type==="investigate" && environment.dark && !/手電筒|照明|開燈/.test(input)){facts.push("黑暗限制了你能確認的細節");outcome="investigation_limited";}
+if(intent.type==="investigate" && skills.has("trace_reader") && !facts.includes("痕跡判讀訓練正在影響你的調查方式")){
+    facts.push("痕跡判讀訓練正在影響你的調查方式");
+  }
+  if(bloodlines.some(x=>x.key==="fate_mark_resonance") && /命痕|異常|裂痕|紋路/.test(input)){
+    if(!facts.includes("你能察覺命痕現象帶來的微弱異常感"))facts.push("你能察覺命痕現象帶來的微弱異常感");
+  }
+  const marketThread=run.threads.find(t=>t.key==="market_anomaly");
+
+  const marketTerminal=["resolved","failed","abandoned"].includes(marketThread?.status);
+  if(!marketTerminal && location==="old_market" && intent.type==="investigate" && /屋頂|暗色|裂痕|命痕/.test(input)){
+    if(!facts.includes("老市場屋頂異常並非光影錯覺"))facts.push("老市場屋頂異常並非光影錯覺");
+    const deep=/深入|爬上|靠近|追查|檢查屋頂/.test(input) && (marketThread?.progress||0)>=1;
+    if(deep){
+      if(!facts.includes("暗色紋路會對附近金屬產生極輕微偏移"))facts.push("暗色紋路會對附近金屬產生極輕微偏移");
+      threadOps.push({
+        key:"market_anomaly",title:"老市場屋頂的暗色紋路",status:"resolved",progress:100,
+        state:{resolution:"玩家取得足夠證據，確認異常存在；事件不再強制追蹤"}
+      });
+      outcome="thread_resolved";
+    }else{
+      threadOps.push({
+        key:"market_anomaly",title:"老市場屋頂的暗色紋路",status:"active",
+        progress:Math.max(1,(marketThread?.progress||0)+1),
+        state:{lastEvidence:"屋瓦縫隙存在不自然的暗色紋路"}
+      });
+    }
+  }
+
+  if(scenario.investigation && (intent.type==="investigate"||intent.type==="social")){
+    const evidence=investigateEvidence({...run,location},scenario,input);
+    threadOps.push(...evidence.threadOps);facts.push(...evidence.facts);
+    if(evidence.handled)outcome=evidence.threadOps[0]?.status==="resolved"?"thread_resolved":"evidence_gained";
+  }
+
+  if(/工作|打工|賺錢|生意/.test(input)){
+    if(!facts.includes("玩家開始主動尋找收入來源"))facts.push("玩家開始主動尋找收入來源");
+    threadOps.push({key:"income_search",title:"尋找收入來源",status:"active",progress:20,state:{}});
+  }
+
+  const trade=tradeOps(run,intent);
+  inventoryOps.push(...trade.ops);
+  facts.push(...trade.facts);
+  if(trade.outcome)outcome=trade.outcome;
+
+  const consumable=useConsumable(run,input);
+  if(consumable.used){
+    Object.assign(next,consumable.state);
+    inventoryOps.push(...consumable.ops);
+    facts.push(consumable.fact);
+    outcome="consumable_used";
+  }
+
+  const threat=resolveThreatByAction(run,input);
+  enemyOps.push(...threat.enemyOps);facts.push(...threat.facts);
+  if(threat.handled && threat.enemyOps.length)outcome="threat_resolved";
+
+  const enemyResult=resolveEnemyCombat(run,intent,input);
+  enemyOps.push(...enemyResult.enemyOps);
+  facts.push(...enemyResult.facts);
+  const discarded=discardLoot(run,input);
+  inventoryOps.push(...discarded.ops);
+  facts.push(...discarded.facts);
+
+  const searched=searchLoot(run,input);
+  inventoryOps.push(...searched.ops);
+  enemyOps.push(...searched.enemyOps);
+  facts.push(...searched.facts);
+
+  if(!searched.handled){
+    const container=searchContainer(run,scenario,input);
+    inventoryOps.push(...container.ops);
+    facts.push(...container.facts);
+    if(container.state)next.containerStates=container.state;
+  }
+
+  const combat=resolveCombat(run,intent,input);
+  if(combat && enemyResult.target){
+    let hpLoss=Math.max(0,(run.state?.hp??100)-combat.hp);
+    let sanLoss=Math.max(0,(run.state?.san??100)-combat.san);
+    if(skills.has("danger_sense") && hpLoss>0){
+      hpLoss=Math.max(1,hpLoss-5);
+      facts.push("危機感知讓你提早察覺攻擊方向，降低了部分傷害");
+    }
+    const coverReduction=environment.coverReduction;
+if(coverReduction>0 && hpLoss>0){hpLoss=Math.max(1,hpLoss-coverReduction);facts.push("你利用已布置的掩體降低了傷害");}
+const armorReduction=equipment.reduce((n,x)=>n+Number(x.damageReduction||0),0);
+    if(armorReduction>0 && hpLoss>0){
+      hpLoss=Math.max(1,hpLoss-armorReduction);
+      facts.push("攜帶的防護裝備吸收了部分傷害");
+    }
+    next.hp=Math.max(0,(run.state?.hp??100)-hpLoss);
+    next.san=Math.max(0,(run.state?.san??100)-sanLoss);
+    facts.push(...combat.facts);
+    inventoryOps.push(...combat.inventoryOps);
+    outcome=enemyResult.target.alive ? combat.outcome : "enemy_defeated";
+    if(next.hp<=0)next.flags.incapacitated=true;
+  } else if(intent.type==="combat" && !enemyResult.target) {
+    outcome="blocked";
+  }
+
+  const spawned=ensureLocalNpcOps(run,location);
+  npcOps.push(...spawned);
+
+  const mergeNpcs=(base,ops)=>{
+    const m=new Map(base.map(n=>[n.key,n]));
+    for(const op of ops)m.set(op.key,op);
+    return [...m.values()];
+  };
+
+  const socialOps=socialConsequence(run,intent);
+  npcOps.push(...socialOps);
+  const afterSocial={...run,npcs:mergeNpcs(run.npcs||[],socialOps)};
+
+  const disclosure=discloseNpcInformation(afterSocial,intent,input);
+  npcOps.push(...disclosure.npcOps);
+  facts.push(...disclosure.facts);
+  if(disclosure.disclosed.length) outcome="information_gained";
+
+  const afterDisclosure={...run,npcs:mergeNpcs(afterSocial.npcs||[],disclosure.npcOps)};
+  const autonomousOps=autonomousNpcTick(afterDisclosure,location,minutes);
+  npcOps.push(...autonomousOps);
+
+  const npcBeforeEvolution={...run,npcs:mergeNpcs(afterDisclosure.npcs||[],npcOps),threads:mergeNpcs(run.threads||[],threadOps)};
+  npcOps.push(...evolveNpcs(npcBeforeEvolution,scenario,{elapsedMinutes:minutes,playerLocation:location}));
+  const evolved=evolveWorld({...run,state:next,threads:mergeNpcs(run.threads||[],threadOps)},scenario,{elapsedMinutes:minutes,location});
+  Object.assign(next,evolved.state);
+  threadOps.push(...evolved.threadOps);
+
+  const npcMap=new Map();
+  for(const op of npcOps)npcMap.set(op.key,op);
+  npcOps=[...npcMap.values()];
+
+  const enemyBase=new Map((run.enemies||[]).map(e=>[e.key,e]));
+  for(const e of enemyOps)enemyBase.set(e.key,e);
+  const enemyTick=autonomousEnemyTick({...run,location,state:next,enemies:[...enemyBase.values()]},scenario);
+  for(const e of enemyTick.enemyOps)enemyBase.set(e.key,e);
+  enemyOps.splice(0,enemyOps.length,...[...enemyBase.values()].filter(e=>(run.enemies||[]).some(old=>old.key===e.key)));
+  facts.push(...enemyTick.facts);
+  next.noise=enemyTick.noise;
+
+  next.facts=[...new Set(facts)].slice(-100);
+
+  const dead=Number(next.hp||0)<=0;
+  if(dead){
+    next.flags.dead=true;
+    next.flags.incapacitated=false;
+    outcome="player_dead";
+  }
+
+  return {
+    turn:run.turn+1,
+    time:addMinutes(run.world_time,minutes),
+    location,
+    locationName:world[location]?.name||location,
+    state:next,
+    parsedIntent:intent,
+    disclosedInformation:disclosure.disclosed,
+    summary:`玩家執行：「${input.slice(0,80)}」；世界時間推進 ${minutes} 分鐘。`,
+    outcome,inventoryOps,npcOps,enemyOps,threadOps,
+    runStatus:dead?"failed":run.status,
+    constraints:{noRetroactiveRewrite:true,noForcedNextAction:true,noHiddenDiceText:true}
+  };
+}
+
+export function fallbackNarrative(settled,action){
+  const place=settled.locationName||settled.location;
+  if(settled.outcome==="travel_progress"){
+    return `你照自己的決定離開原地。\n\n路程沒有被壓縮成一次瞬移。街景、車流和時間一點一點往後推，你目前抵達的是「${place}」。真正的目的地還在前面。\n\n這一步已經發生，也已經寫進世界狀態；下一步要不要繼續，由你決定。`;
+  }
+  if(settled.outcome==="thread_resolved"){
+    return `你把這件事追到了足以落地的程度。\n\n目前取得的證據已經能確認異常存在，而不是單純的錯覺。這條事件線已經收束，不會為了拖長遊戲又憑空冒出另一層幕後。\n\n你現在人在「${place}」，時間是 ${settled.time}。`;
+  }
+  if(settled.outcome==="information_gained"){
+    return `對方沒有把所有事情一次說完，只透露了目前願意談、而且與你的問題有關的部分。\n\n你得到的新情報已經寫進世界紀錄。你仍在「${place}」，時間是 ${settled.time}。`;
+  }
+  if(settled.outcome==="trade_complete"){
+    return `交易完成。你手上的東西與錢包都已經真正更新，而不是只寫在敘事裡。\n\n你目前仍在「${place}」，時間是 ${settled.time}。`;
+  }
+  if(settled.outcome==="player_dead"){
+    return `你的身體已經無法繼續支撐。視野與聲音一起斷開。\n\n這次副本到此結束；死亡結果已寫入硬狀態，不能靠下一段敘事撤銷。你不會取得本次通關獎勵。`;
+  }
+  if(settled.outcome==="enemy_defeated"){
+    return `衝突結束了，敵對目標已失去戰鬥能力。它的狀態已經永久寫入世界，不會在下一回合憑空恢復。\n\n你的 HP 是 ${settled.state.hp}，SAN 是 ${settled.state.san}。`;
+  }
+  if(settled.outcome.startsWith("combat_") || settled.outcome==="incapacitated"){
+    return `衝突真的造成了代價。你的 HP 現在是 ${settled.state.hp}，SAN 是 ${settled.state.san}。\n\n這些數值已經寫進世界狀態，不會在下一回合自動復原。你目前在「${place}」。`;
+  }
+  if(settled.outcome==="blocked"){
+    return `你嘗試執行「${action.trim()}」，但目前條件不足，這件事沒有被系統假裝成成功。\n\n位置仍是「${place}」，時間來到 ${settled.time}。`;
+  }
+  return `你照自己的想法行動。\n\n「${action.trim()}」造成了實際的世界推進。時間來到 ${settled.time}，目前位置是「${place}」。\n\n這個世界不會把你拉回預設選項；已發生的結果會保留下來。`;
+}
+
+export function getWorldForScenario(scenarioId="town_origin"){
+  return loadScenario(scenarioId).places;
+}
