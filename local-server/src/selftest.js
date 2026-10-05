@@ -8,7 +8,7 @@ import { loadScenario, listScenarios } from "./scenario-loader.js";
 import { discloseNpcInformation } from "./npc-disclosure.js";
 import { resolveEnemyCombat } from "./enemy-engine.js";
 import { evaluateSettlement } from "./settlement.js";
-import { lootForDefeat, useConsumable } from "./loot-engine.js";
+import { searchLoot, useConsumable } from "./loot-engine.js";
 
 function run(overrides={}) {
   return {
@@ -208,8 +208,14 @@ function run(overrides={}) {
 
 {
   const r=run({enemies:[{key:"feral_dog",name:"野犬",alive:false,hp:0,location:"town_edge",state:{}}]});
-  const loot=lootForDefeat(r,r.enemies[0]);
-  assert.equal(loot[0].key,"dog_tag"); assert.equal(loot[0].meta.extractable,true);
+  const loot=searchLoot(r,"我搜刮野犬屍體");
+  assert.equal(loot.ops[0].key,"dog_tag"); assert.equal(loot.ops[0].meta.extractable,true); assert.equal(loot.enemyOps[0].state.looted,true);
+}
+
+{
+  const r=run({state:{...run().state,bagCapacity:1},inventory:[{key:"old_loot",name:"舊戰利品",quantity:1,meta:{loot:true,slots:1}}],enemies:[{key:"feral_dog",name:"野犬",alive:false,hp:0,location:"town_edge",state:{}}]});
+  const loot=searchLoot(r,"搜索屍體");
+  assert.equal(loot.ops.length,0); assert.equal(loot.enemyOps.length,0);
 }
 
 console.log("engine selftest: OK");
