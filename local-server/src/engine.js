@@ -65,20 +65,21 @@ export function settleAction(run,action){
   const marketTerminal=["resolved","failed","abandoned"].includes(marketThread?.status);
   if(!marketTerminal && location==="old_market" && intent.type==="investigate" && /屋頂|暗色|裂痕|命痕/.test(input)){
     if(!facts.includes("老市場屋頂異常並非光影錯覺"))facts.push("老市場屋頂異常並非光影錯覺");
-    threadOps.push({
-      key:"market_anomaly",title:"老市場屋頂的暗色紋路",status:"active",
-      progress:Math.max(1,(marketThread?.progress||0)+1),
-      state:{lastEvidence:"屋瓦縫隙存在不自然的暗色紋路"}
-    });
-  }
-
-  if(!marketTerminal && location==="old_market" && intent.type==="investigate" && /深入|爬上|靠近|追查|檢查屋頂/.test(input) && (marketThread?.progress||0)>=1){
-    if(!facts.includes("暗色紋路會對附近金屬產生極輕微偏移"))facts.push("暗色紋路會對附近金屬產生極輕微偏移");
-    threadOps.push({
-      key:"market_anomaly",title:"老市場屋頂的暗色紋路",status:"resolved",progress:100,
-      state:{resolution:"玩家取得足夠證據，確認異常存在；事件不再強制追蹤"}
-    });
-    outcome="thread_resolved";
+    const deep=/深入|爬上|靠近|追查|檢查屋頂/.test(input) && (marketThread?.progress||0)>=1;
+    if(deep){
+      if(!facts.includes("暗色紋路會對附近金屬產生極輕微偏移"))facts.push("暗色紋路會對附近金屬產生極輕微偏移");
+      threadOps.push({
+        key:"market_anomaly",title:"老市場屋頂的暗色紋路",status:"resolved",progress:100,
+        state:{resolution:"玩家取得足夠證據，確認異常存在；事件不再強制追蹤"}
+      });
+      outcome="thread_resolved";
+    }else{
+      threadOps.push({
+        key:"market_anomaly",title:"老市場屋頂的暗色紋路",status:"active",
+        progress:Math.max(1,(marketThread?.progress||0)+1),
+        state:{lastEvidence:"屋瓦縫隙存在不自然的暗色紋路"}
+      });
+    }
   }
 
   const harborThread=run.threads.find(t=>t.key==="harbor_lockdown");
