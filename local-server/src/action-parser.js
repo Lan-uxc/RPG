@@ -36,3 +36,15 @@ export function parseAction(input) {
   if (/偷偷|潛行|冒險|硬闖|強行/.test(text)) intent.risk="high";
   return intent;
 }
+
+export function splitActions(input,max=3){
+  const text=String(input||"").trim();
+  if(!text)return [];
+  const normalized=text
+    .replace(/[。；;]/g,"，")
+    .replace(/，(?:然後|接著|再|之後|並且|最後)/g,"，")
+    .replace(/(?:然後|接著|之後|並且|最後)/g,"，");
+  const parts=normalized.split(/，+/).map(x=>x.trim()).filter(Boolean);
+  if(parts.length<=1)return [text];
+  return parts.slice(0,Math.max(1,max));
+}
