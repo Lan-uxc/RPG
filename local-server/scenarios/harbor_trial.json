@@ -1,29 +1,95 @@
 {
-  "id":"harbor_trial",
-  "name":"港區封鎖線",
-  "start":{
-    "location":"harbor_gate",
-    "time":"21:40",
-    "hp":100,
-    "san":100,
-    "reward":0,
-    "inventory":[
-      {"key":"phone","name":"手機","quantity":1,"meta":{}},
-      {"key":"wallet","name":"錢包","quantity":1,"meta":{"cash":800}},
-      {"key":"flashlight","name":"手電筒","quantity":1,"meta":{}}
+  "id": "harbor_trial",
+  "name": "港區封鎖線",
+  "start": {
+    "location": "harbor_gate",
+    "time": "21:40",
+    "hp": 100,
+    "san": 100,
+    "reward": 0,
+    "inventory": [
+      {
+        "key": "phone",
+        "name": "手機",
+        "quantity": 1,
+        "meta": {}
+      },
+      {
+        "key": "wallet",
+        "name": "錢包",
+        "quantity": 1,
+        "meta": {
+          "cash": 800
+        }
+      },
+      {
+        "key": "flashlight",
+        "name": "手電筒",
+        "quantity": 1,
+        "meta": {}
+      }
     ]
   },
-  "facts":["港區今晚臨時封鎖","遠處偶爾傳來金屬敲擊聲"],
-  "threads":[
-    {"key":"harbor_lockdown","title":"港區封鎖原因","status":"active","progress":0,"state":{}}
+  "facts": [
+    "港區今晚臨時封鎖",
+    "遠處偶爾傳來金屬敲擊聲"
   ],
-  "places":{
-    "harbor_gate":{"name":"港區入口","routes":{"warehouse_lane":8,"seawall":12}},
-    "warehouse_lane":{"name":"倉庫巷道","routes":{"harbor_gate":8,"old_warehouse":10}},
-    "old_warehouse":{"name":"舊倉庫","routes":{"warehouse_lane":10}},
-    "seawall":{"name":"防波堤","routes":{"harbor_gate":12}}
+  "threads": [
+    {
+      "key": "harbor_lockdown",
+      "title": "港區封鎖原因",
+      "status": "active",
+      "progress": 0,
+      "state": {}
+    }
+  ],
+  "places": {
+    "harbor_gate": {
+      "name": "港區入口",
+      "routes": {
+        "warehouse_lane": 8,
+        "seawall": 12
+      }
+    },
+    "warehouse_lane": {
+      "name": "倉庫巷道",
+      "routes": {
+        "harbor_gate": 8,
+        "old_warehouse": 10
+      }
+    },
+    "old_warehouse": {
+      "name": "舊倉庫",
+      "routes": {
+        "warehouse_lane": 10
+      }
+    },
+    "seawall": {
+      "name": "防波堤",
+      "routes": {
+        "harbor_gate": 12
+      }
+    }
   },
-  "enemies":[
-    {"key":"feral_dog","name":"受驚的野犬","hp":45,"location":"warehouse_lane","state":{"hostile":true}}
-  ]
+  "enemies": [
+    {
+      "key": "feral_dog",
+      "name": "受驚的野犬",
+      "hp": 45,
+      "location": "warehouse_lane",
+      "state": {
+        "hostile": true
+      }
+    }
+  ],
+  "completion": {
+    "mode": "all_threads_resolved_and_enemies_cleared",
+    "requiredThreads": [
+      "harbor_lockdown"
+    ]
+  },
+  "rewards": {
+    "base": 150,
+    "survivalBonus": 40
+  }
 }
