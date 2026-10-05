@@ -60,7 +60,8 @@ CREATE TABLE IF NOT EXISTS runs (
   state_json TEXT NOT NULL,
   summary TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  returned_at TEXT
 );
 CREATE TABLE IF NOT EXISTS turns (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,6 +110,8 @@ CREATE TABLE IF NOT EXISTS threads (
   PRIMARY KEY(run_id, thread_key)
 );
 `);
+const runCols=db.prepare("PRAGMA table_info(runs)").all();
+if(!runCols.some(x=>x.name==="returned_at"))db.exec("ALTER TABLE runs ADD COLUMN returned_at TEXT");
 
 export function ensurePlayer(playerId){
   const tx=db.transaction(()=>{
@@ -257,9 +260,10 @@ export function createRun({id,playerId,scenarioId="town_origin",loadout=[]}){
 export function returnFailedRunToHub(runId,playerId){
   let penalty=0;
   const tx=db.transaction(()=>{
-    const run=db.prepare("SELECT id,status,player_id,scenario_id FROM runs WHERE id=?").get(runId);
+    const run=db.prepare("SELECT id,status,player_id,scenario_id,returned_at FROM runs WHERE id=?").get(runId);
     if(!run||run.player_id!==playerId)throw new Error("run_not_found");
     if(run.status!=="failed")throw new Error("run_not_failed");
+    if(run.returned_at){penalty=0;return;}
     const sc=loadScenario(run.scenario_id);
     penalty=Math.max(0,Number(sc.death?.rewardPointLoss||0));
     db.prepare(`UPDATE player_profiles SET reward_points=MAX(0,reward_points-?),hub_state_json='{"location":"hub"}',updated_at=CURRENT_TIMESTAMP WHERE player_id=?`).run(penalty,playerId);
