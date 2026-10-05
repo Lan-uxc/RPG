@@ -22,6 +22,13 @@ textarea{width:100%;min-height:58px;max-height:130px;resize:vertical;border:1px 
 </style>
 </head>
 <body>
+<div id="startScreen" style="position:fixed;inset:0;z-index:50;background:#000;display:flex;align-items:center;justify-content:center;padding:18px">
+  <div style="width:min(520px,94vw);border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:18px">
+    <div style="font-size:18px;font-weight:700;margin-bottom:8px">無限試煉空間</div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:14px">選擇一個副本開始。畫面只有文字與狀態，不使用圖片素材。</div>
+    <div id="scenarioList"><div class="row">讀取副本中…</div></div>
+  </div>
+</div>
 <div class="app">
 <header class="top"><div class="head"><div class="name">無限試煉空間</div><div class="online" id="health">檢查 AI…</div></div>
 <div class="meta"><span id="loc">地點：北台灣・邊緣城鎮</span><span id="time">時間：08:10</span><span id="turn">第 0 回合</span></div></header>
@@ -47,7 +54,7 @@ textarea{width:100%;min-height:58px;max-height:130px;resize:vertical;border:1px 
 </main>
 
 <main id="missions" class="panel"><div class="card"><h2>事件與任務</h2><div id="threads">尚無事件。</div></div></main>
-<main id="character" class="panel"><div class="card"><h2>角色狀態</h2><div id="characterState">HP 100 / SAN 100</div></div><div class="card"><h2>同行人物</h2><div id="npcs">目前沒有同行人物。</div></div></main>
+<main id="character" class="panel"><div class="card"><h2>角色狀態</h2><div id="characterState">HP 100 / SAN 100</div></div><div class="card"><h2>同行人物</h2><div id="npcs">目前沒有同行人物。</div></div><div class="card"><h2>敵對目標</h2><div id="enemies">目前沒有敵對目標。</div></div></main>
 <main id="inventory" class="panel"><div class="card"><h2>行囊</h2><div id="items">讀取中…</div></div></main>
 <main id="archive" class="panel"><div class="card"><h2>世界紀錄</h2><div id="facts">讀取中…</div></div></main>
 </div>
@@ -61,15 +68,47 @@ textarea{width:100%;min-height:58px;max-height:130px;resize:vertical;border:1px 
 </nav>
 
 <script>
-const K="rpg-local-save-v2";let s=JSON.parse(localStorage.getItem(K)||"null")||{};let currentRun=null;
+const K="rpg-local-save-v3";let s=JSON.parse(localStorage.getItem(K)||"null")||{};let currentRun=null;let worldNames={};
 const q=id=>document.getElementById(id);
 function e(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-function placeName(key){const m={town_edge:"北台灣・邊緣城鎮",old_market:"老市場",bus_station:"公車站",riverside:"河堤道路",industrial_gate:"工業區入口",taipei_transit:"前往台北途中",taipei_city:"台北市區"};return m[key]||key}
-async function ensureSession(){
-  if(s.runId){const r=await fetch("/api/run/"+s.runId);if(r.ok){const j=await r.json();render(j.run,j.recent);return}}
-  const playerId=s.playerId||crypto.randomUUID();
-  const r=await fetch("/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerId})});
-  const j=await r.json();s={playerId:j.playerId,runId:j.run.id};localStorage.setItem(K,JSON.stringify(s));render(j.run,[]);
+function placeName(key){return worldNames[key]||key}
+async function ensureAuth(){
+  const r=await fetch("/api/me");
+  if(r.ok)return;
+  const g=await fetch("/api/auth/guest",{method:"POST"});
+  if(!g.ok)throw Error("auth_failed");
+}
+async function loadWorld(scenarioId){
+  const r=await fetch("/api/world?scenario="+encodeURIComponent(scenarioId));
+  if(!r.ok)return;
+  const j=await r.json();
+  worldNames=Object.fromEntries(Object.entries(j.places||{}).map(([k,v])=>[k,v.name||k]));
+}
+async function loadScenarios(){
+  await ensureAuth();
+  if(s.runId){
+    const r=await fetch("/api/run/"+s.runId);
+    if(r.ok){
+      const j=await r.json();
+      await loadWorld(j.run.scenario_id);
+      render(j.run,j.recent);
+      q("startScreen").style.display="none";
+      return;
+    }
+    localStorage.removeItem(K);s={};
+  }
+  const r=await fetch("/api/scenarios");
+  const j=await r.json();
+  q("scenarioList").innerHTML=(j.scenarios||[]).map(x=>'<button class="sbtn" style="width:100%;margin:5px 0" data-scenario="'+e(x.id)+'"><b>'+e(x.name)+'</b><br><small>'+e(x.id)+'</small></button>').join("")||'<div class="row">沒有可用副本。</div>';
+  q("scenarioList").querySelectorAll("[data-scenario]").forEach(b=>b.onclick=()=>startScenario(b.dataset.scenario));
+}
+async function startScenario(scenarioId){
+  const r=await fetch("/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scenarioId})});
+  const j=await r.json();if(!r.ok)throw Error(j.error||"session_failed");
+  s={runId:j.run.id};localStorage.setItem(K,JSON.stringify(s));
+  await loadWorld(j.run.scenario_id);
+  render(j.run,[]);
+  q("startScreen").style.display="none";
 }
 function render(run,recent=[]){
   currentRun=run;q("loc").textContent="地點："+placeName(run.location);q("time").textContent="時間："+run.world_time;q("turn").textContent="第 "+run.turn+" 回合";
@@ -78,6 +117,7 @@ function render(run,recent=[]){
   q("threads").innerHTML=(run.threads||[]).map(x=>'<div class="row"><b>'+e(x.title)+'</b><span class="badge '+(x.status==="resolved"?"done":"")+'">'+e(x.status)+'</span><br><small>進度 '+e(x.progress)+'</small></div>').join("")||"尚無事件。";
   q("items").innerHTML=(run.inventory||[]).map(x=>'<div class="row">'+e(x.name)+' × '+e(x.quantity)+(x.meta?.cash!=null?'　現金 '+e(x.meta.cash)+' 元':'')+'</div>').join("")||"空。";
   q("npcs").innerHTML=(run.npcs||[]).map(x=>'<div class="row '+(!x.alive?"dead":"")+'"><b>'+e(x.name)+'</b>　'+(x.alive?"存活":"死亡")+'　關係 '+e(x.relation)+(x.state?.lastAutonomousAction?'<br><small>最近行動：'+e(x.state.lastAutonomousAction)+'</small>':'')+'</div>').join("")||"目前沒有同行人物。";
+  q("enemies").innerHTML=(run.enemies||[]).map(x=>'<div class="row '+(!x.alive?"dead":"")+'"><b>'+e(x.name)+'</b>　'+(x.alive?'HP '+e(x.hp):'已失去戰鬥能力')+'<br><small>'+e(placeName(x.location))+'</small></div>').join("")||"目前沒有敵對目標。";
   q("characterState").textContent="HP "+(run.state?.hp??100)+" / SAN "+(run.state?.san??100)+" / 獎勵點 "+(run.state?.reward??0);
   q("facts").innerHTML=(run.state?.facts||[]).map(x=>'<div class="row">'+e(x)+'</div>').join("")||"尚無紀錄。";
 }
@@ -96,13 +136,13 @@ q("go").onclick=()=>act(q("input").value);
 q("input").addEventListener("keydown",x=>{if(x.key==="Enter"&&!x.shiftKey){x.preventDefault();act(q("input").value)}});
 document.querySelectorAll(".sbtn").forEach(b=>b.onclick=()=>act(b.textContent));
 q("historyBtn").onclick=()=>q("history").classList.toggle("on");
-q("newBtn").onclick=()=>{if(confirm("確定重新開始？")){localStorage.removeItem(K);location.reload()}};
+q("newBtn").onclick=()=>{if(confirm("確定離開目前副本並重新選擇？")){localStorage.removeItem(K);location.reload()}};
 document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   document.querySelectorAll(".panel").forEach(x=>x.classList.remove("on"));q(b.dataset.panel).classList.add("on");
 });
 fetch("/api/health").then(r=>r.json()).then(j=>q("health").textContent=j.ollama?"AI 在線・"+j.model:"AI fallback 模式").catch(()=>q("health").textContent="伺服器連線異常");
-ensureSession();
+loadScenarios().catch(err=>{q("scenarioList").innerHTML='<div class="row">啟動失敗：'+e(err.message)+'</div>'});
 </script>
 </body>
 </html>
