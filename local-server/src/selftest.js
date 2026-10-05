@@ -92,6 +92,29 @@ function run(overrides={}) {
 }
 
 {
+  const empowered=run({
+    scenario_id:"harbor_trial",
+    location:"warehouse_lane",
+    state:{hp:110,maxHp:110,san:110,maxSan:110,reward:0,facts:[],flags:{},visited:["warehouse_lane"],skills:["danger_sense"],bloodlines:[]},
+    enemies:[{key:"feral_dog",name:"受驚的野犬",alive:true,hp:45,location:"warehouse_lane",state:{}}]
+  });
+  const s=settleAction(empowered,"我直接攻擊野犬");
+  assert.ok(s.state.hp>82);
+  assert.ok(s.state.hp<=110);
+  assert.ok(s.state.facts.some(x=>x.includes("危機感知")));
+}
+
+{
+  const resonant=run({
+    location:"old_market",
+    state:{hp:100,maxHp:100,san:100,maxSan:100,reward:0,facts:[],flags:{},visited:["old_market"],skills:["trace_reader"],bloodlines:[{key:"fate_mark_resonance",level:1}]}
+  });
+  const s=settleAction(resonant,"我調查屋頂的命痕紋路");
+  assert.ok(s.state.facts.some(x=>x.includes("命痕現象")));
+  assert.ok(s.state.facts.some(x=>x.includes("痕跡判讀")));
+}
+
+{
   const r=run({
     scenario_id:"harbor_trial",
     location:"warehouse_lane",
