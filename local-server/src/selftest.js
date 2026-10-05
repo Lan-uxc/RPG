@@ -15,6 +15,7 @@ import { interactEnvironment, movementBlockedByEnvironment, environmentEffects }
 import { stealthAction, detectionState } from "./stealth-engine.js";
 import { resolveThreatByAction, threatsResolved } from "./threat-engine.js";
 import { investigateEvidence } from "./investigation-engine.js";
+import { evolveWorld, evolveNpcs } from "./world-evolution.js";
 
 function run(overrides={}) {
   return {
@@ -391,6 +392,31 @@ function run(overrides={}) {
     npcs:[{key:"dock_guard",name:"港區警衛",alive:true,relation:0,state:{location:"harbor_gate",evidence:[{key:"guard_testimony",match:"封鎖|昨晚|原因",weight:1,fact:"警衛口供"}]}}]});
   const e=investigateEvidence(r,sc,"我詢問警衛昨晚封鎖原因");
   assert.equal(e.evidence,"guard_testimony");
+}
+
+{
+  const sc=loadScenario("town_origin");
+  const r=run({turn:4,world_time:"08:30",threads:[{key:"market_anomaly",title:"x",status:"active",progress:0,state:{}}]});
+  const a=evolveWorld(r,sc,{elapsedMinutes:5});
+  assert.ok(a.state.facts.includes("市場裡開始有人低聲談論屋頂最近反覆出現的異常"));
+  const b=evolveWorld({...r,state:a.state,turn:5},sc,{elapsedMinutes:5});
+  assert.equal(b.state.world.events.filter(x=>x.key==="market_rumor_spreads").length,1);
+}
+
+{
+  const sc=loadScenario("town_origin");
+  const npc={key:"market_keeper",name:"林伯",alive:true,relation:0,state:{location:"old_market",schedule:[{from:14,to:18,location:"riverside",activity:"沿河堤送貨"}],memories:[]}};
+  const r=run({world_time:"15:00",npcs:[npc]});
+  const ops=evolveNpcs(r,sc,{elapsedMinutes:10,playerLocation:"town_edge"});
+  assert.equal(ops[0].state.location,"riverside");
+  assert.ok(ops[0].state.memories.length>0);
+}
+
+{
+  const sc=loadScenario("harbor_trial");
+  const r=run({scenario_id:"harbor_trial",turn:3,world_time:"22:00",threads:[{key:"harbor_lockdown",title:"x",status:"active",progress:0,state:{}}]});
+  const s=settleAction(r,"我等待一下");
+  assert.ok(s.state.world?.events?.some(x=>x.key==="lockdown_tightens"));
 }
 
 console.log("engine selftest: OK");
