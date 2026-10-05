@@ -22,5 +22,5 @@ export function publishIntel(playerId,{title,body,price}){
  db.prepare("INSERT INTO city_intel(id,seller_id,title,body,price) VALUES (?,?,?,?,?)").run(crypto.randomUUID(),playerId,String(title).slice(0,80),String(body).slice(0,2000),Math.max(0,Math.floor(Number(price)||0)));return marketSnapshot();
 }
 export function acquireIntel(playerId,id){
- let found=null;const tx=db.transaction(()=>{const x=db.prepare("SELECT * FROM city_intel WHERE id=? AND status='open'").get(id);if(!x)throw Error("intel_not_found");if(x.seller_id!==playerId){spend(playerId,x.price);earn(x.seller_id,x.price)}db.prepare("INSERT OR IGNORE INTO city_intel_access(intel_id,player_id) VALUES (?,?)").run(id,playerId);found={id:x.id,title:x.title,body:x.body}});tx();return {intel:found,profile:getPlayerProfile(playerId),...marketSnapshot()};
+ let found=null;const tx=db.transaction(()=>{const x=db.prepare("SELECT * FROM city_intel WHERE id=? AND status='open'").get(id);if(!x)throw Error("intel_not_found");if(x.seller_id!==playerId){spend(playerId,x.price);earn(x.seller_id,x.price)}db.prepare("INSERT OR IGNORE INTO city_intel_access(intel_id,player_id) VALUES (?,?)").run(id,playerId);found={id:x.id,title:x.title,body:x.body}});tx();return {profile:getPlayerProfile(playerId),...marketSnapshot(),intelDetail:found};
 }
