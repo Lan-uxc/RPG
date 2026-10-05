@@ -61,8 +61,12 @@ export function settleAction(run,action){
 
   const facts=[...(next.facts||[])];
   const env=interactEnvironment({...run,location},scenario,input);
-  if(env.handled){if(env.state)next.objectStates=env.state;facts.push(...env.facts);outcome="environment_changed";\n    if(/打破|砸破|破窗/.test(input)){next.noise=Math.min(100,Number(next.noise||0)+40);facts.push("破裂聲在倉庫區傳開");}\n  }
-  const environment=environmentEffects({...run,state:next,location},scenario);\n  if(intent.type==="investigate" && environment.dark && !/手電筒|照明|開燈/.test(input)){facts.push("黑暗限制了你能確認的細節");outcome="investigation_limited";}\n  if(intent.type==="investigate" && skills.has("trace_reader") && !facts.includes("痕跡判讀訓練正在影響你的調查方式")){
+  if(env.handled){if(env.state)next.objectStates=env.state;facts.push(...env.facts);outcome="environment_changed";
+if(/打破|砸破|破窗/.test(input)){next.noise=Math.min(100,Number(next.noise||0)+40);facts.push("破裂聲在倉庫區傳開");}
+}
+  const environment=environmentEffects({...run,state:next,location},scenario);
+if(intent.type==="investigate" && environment.dark && !/手電筒|照明|開燈/.test(input)){facts.push("黑暗限制了你能確認的細節");outcome="investigation_limited";}
+if(intent.type==="investigate" && skills.has("trace_reader") && !facts.includes("痕跡判讀訓練正在影響你的調查方式")){
     facts.push("痕跡判讀訓練正在影響你的調查方式");
   }
   if(bloodlines.some(x=>x.key==="fate_mark_resonance") && /命痕|異常|裂痕|紋路/.test(input)){
@@ -153,7 +157,9 @@ export function settleAction(run,action){
       hpLoss=Math.max(1,hpLoss-5);
       facts.push("危機感知讓你提早察覺攻擊方向，降低了部分傷害");
     }
-    const coverReduction=environment.coverReduction;\n    if(coverReduction>0 && hpLoss>0){hpLoss=Math.max(1,hpLoss-coverReduction);facts.push("你利用已布置的掩體降低了傷害");}\n    const armorReduction=equipment.reduce((n,x)=>n+Number(x.damageReduction||0),0);
+    const coverReduction=environment.coverReduction;
+if(coverReduction>0 && hpLoss>0){hpLoss=Math.max(1,hpLoss-coverReduction);facts.push("你利用已布置的掩體降低了傷害");}
+const armorReduction=equipment.reduce((n,x)=>n+Number(x.damageReduction||0),0);
     if(armorReduction>0 && hpLoss>0){
       hpLoss=Math.max(1,hpLoss-armorReduction);
       facts.push("攜帶的防護裝備吸收了部分傷害");
