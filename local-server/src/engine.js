@@ -36,6 +36,7 @@ export function settleAction(run,action){
   const intent=parseAction(input);
   const skills=new Set(run.state?.skills||[]);
   const bloodlines=run.state?.bloodlines||[];
+  const equipment=run.state?.equipment||[];
   const next=clone(run.state);
   const inventoryOps=[],threadOps=[],enemyOps=[];
   let npcOps=[];
@@ -118,6 +119,11 @@ export function settleAction(run,action){
       hpLoss=Math.max(1,hpLoss-5);
       facts.push("危機感知讓你提早察覺攻擊方向，降低了部分傷害");
     }
+    const armorReduction=equipment.reduce((n,x)=>n+Number(x.damageReduction||0),0);
+    if(armorReduction>0 && hpLoss>0){
+      hpLoss=Math.max(1,hpLoss-armorReduction);
+      facts.push("攜帶的防護裝備吸收了部分傷害");
+    }
     next.hp=Math.max(0,(run.state?.hp??100)-hpLoss);
     next.san=Math.max(0,(run.state?.san??100)-sanLoss);
     facts.push(...combat.facts);
@@ -162,6 +168,13 @@ export function settleAction(run,action){
 
   next.facts=[...new Set(facts)].slice(-100);
 
+  const dead=Number(next.hp||0)<=0;
+  if(dead){
+    next.flags.dead=true;
+    next.flags.incapacitated=false;
+    outcome="player_dead";
+  }
+
   return {
     turn:run.turn+1,
     time:addMinutes(run.world_time,minutes),
@@ -172,6 +185,7 @@ export function settleAction(run,action){
     disclosedInformation:disclosure.disclosed,
     summary:`玩家執行：「${input.slice(0,80)}」；世界時間推進 ${minutes} 分鐘。`,
     outcome,inventoryOps,npcOps,enemyOps,threadOps,
+    runStatus:dead?"failed":run.status,
     constraints:{noRetroactiveRewrite:true,noForcedNextAction:true,noHiddenDiceText:true}
   };
 }
@@ -189,6 +203,9 @@ export function fallbackNarrative(settled,action){
   }
   if(settled.outcome==="trade_complete"){
     return `交易完成。你手上的東西與錢包都已經真正更新，而不是只寫在敘事裡。\n\n你目前仍在「${place}」，時間是 ${settled.time}。`;
+  }
+  if(settled.outcome==="player_dead"){
+    return `你的身體已經無法繼續支撐。視野與聲音一起斷開。\n\n這次副本到此結束；死亡結果已寫入硬狀態，不能靠下一段敘事撤銷。你不會取得本次通關獎勵。`;
   }
   if(settled.outcome==="enemy_defeated"){
     return `衝突結束了，敵對目標已失去戰鬥能力。它的狀態已經永久寫入世界，不會在下一回合憑空恢復。\n\n你的 HP 是 ${settled.state.hp}，SAN 是 ${settled.state.san}。`;
