@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { settleAction } from "./engine.js";
+import { parseAction } from "./action-parser.js";
+import { tradeOps } from "./transactions.js";
+import { socialConsequence } from "./npc-engine.js";
 
 function run(overrides={}) {
   return {
@@ -13,6 +16,18 @@ function run(overrides={}) {
     threads:[{key:"market_anomaly",title:"老市場屋頂的暗色紋路",status:"active",progress:0,state:{}}],
     ...overrides
   };
+}
+
+{
+  const p=parseAction("我去公車站搭車前往台北");
+  assert.equal(p.type,"move");
+  assert.equal(p.destination,"taipei_city");
+}
+
+{
+  const p=parseAction("我客氣地詢問他昨晚有沒有看到什麼");
+  assert.equal(p.type,"social");
+  assert.equal(p.socialTone,"friendly");
 }
 
 {
@@ -30,12 +45,33 @@ function run(overrides={}) {
 {
   const r=run({location:"old_market",threads:[{key:"market_anomaly",title:"x",status:"active",progress:1,state:{}}]});
   const s=settleAction(r,"我爬上去深入檢查屋頂裂痕");
-  assert.equal(s.threadOps[0].status,"resolved");
+  assert.equal(s.threadOps.find(x=>x.key==="market_anomaly")?.status,"resolved");
 }
 
 {
   const s=settleAction(run(),"我在鎮上找工作賺錢");
   assert.equal(s.threadOps[0].key,"income_search");
+}
+
+{
+  const r=run();
+  const t=tradeOps(r,parseAction("我買一瓶礦泉水"));
+  assert.equal(t.outcome,"trade_complete");
+  assert.equal(t.ops.find(x=>x.type==="cash").delta,-25);
+  assert.equal(t.ops.find(x=>x.type==="add").key,"water");
+}
+
+{
+  const r=run({
+    location:"old_market",
+    npcs:[{
+      key:"market_keeper",name:"林伯",alive:true,relation:0,
+      state:{location:"old_market",memories:[]}
+    }]
+  });
+  const ops=socialConsequence(r,parseAction("我客氣地問林伯屋頂的事情"));
+  assert.equal(ops[0].relation,2);
+  assert.equal(ops[0].state.memories.at(-1).tone,"friendly");
 }
 
 console.log("engine selftest: OK");
