@@ -222,6 +222,7 @@ export function createRun({id,playerId,scenarioId="town_origin",loadout=[]}){
     bloodlines,
     upgrades:upgrades.map(u=>u.key),
     equipment:equipment.map(u=>({key:u.key,...u.state})),
+    bagCapacity:6+upgrades.reduce((n,u)=>n+Number(u.state?.bagCapacity||0),0),
     visited:[sc.start.location]
   };
 
