@@ -10,6 +10,7 @@ import { searchContainer, discardLoot } from "./container-engine.js";
 import { interactEnvironment, movementBlockedByEnvironment, environmentEffects } from "./environment-engine.js";
 import { stealthAction, breakStealth } from "./stealth-engine.js";
 import { resolveThreatByAction } from "./threat-engine.js";
+import { investigateEvidence } from "./investigation-engine.js";
 
 function addMinutes(hhmm,minutes){
   const [h,m]=hhmm.split(":").map(Number);
@@ -99,22 +100,10 @@ if(intent.type==="investigate" && skills.has("trace_reader") && !facts.includes(
     }
   }
 
-  const harborThread=run.threads.find(t=>t.key==="harbor_lockdown");
-  const harborTerminal=["resolved","failed","abandoned"].includes(harborThread?.status);
-  if(!harborTerminal && run.scenario_id==="harbor_trial" && intent.type==="investigate" && /封鎖|倉庫|聲音|痕跡|檢查|調查/.test(input)){
-    const nextProgress=Math.max(25,(harborThread?.progress||0)+35);
-    const canResolve=(location==="old_warehouse" || location==="seawall") && nextProgress>=70;
-    threadOps.push({
-      key:"harbor_lockdown",title:"港區封鎖原因",
-      status:canResolve?"resolved":"active",
-      progress:canResolve?100:nextProgress,
-      state:{
-        lastEvidence:location==="old_warehouse"?"舊倉庫內留下近期搬運與封鎖相關痕跡":"港區封鎖與夜間異常活動有直接關聯",
-        resolution:canResolve?"已取得足夠資訊理解封鎖原因":null
-      }
-    });
-    facts.push(canResolve?"玩家已釐清港區封鎖原因":"玩家取得一項與港區封鎖有關的新線索");
-    if(canResolve) outcome="thread_resolved";
+  if(run.scenario_id==="harbor_trial" && intent.type==="investigate"){
+    const evidence=investigateEvidence({...run,location},scenario,input);
+    threadOps.push(...evidence.threadOps);facts.push(...evidence.facts);
+    if(evidence.handled)outcome=evidence.threadOps[0]?.status==="resolved"?"thread_resolved":"evidence_gained";
   }
 
   if(/工作|打工|賺錢|生意/.test(input)){
