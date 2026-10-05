@@ -360,4 +360,16 @@ function run(overrides={}) {
   assert.equal(evaluateSettlement(harbor).complete,true);
 }
 
+{
+  const sc=loadScenario("harbor_trial");
+  const base=run({scenario_id:"harbor_trial",location:"harbor_gate",threads:[{key:"harbor_lockdown",title:"harbor",status:"active",progress:0,state:{}}]});
+  const first=investigateEvidence(base,sc,"檢查封鎖公告");
+  assert.equal(first.evidence,"gate_notice");
+  const repeat=investigateEvidence({...base,threads:first.threadOps},sc,"再次檢查封鎖公告");
+  assert.equal(repeat.handled,false);
+  const second=investigateEvidence({...base,location:"old_warehouse",threads:first.threadOps},sc,"調查倉庫地面痕跡");
+  assert.equal(second.evidence,"warehouse_tracks");
+  assert.equal(second.threadOps[0].status,"resolved");
+}
+
 console.log("engine selftest: OK");
