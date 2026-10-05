@@ -16,6 +16,13 @@ CREATE TABLE IF NOT EXISTS players (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS player_profiles (
+  player_id TEXT PRIMARY KEY REFERENCES players(id),
+  reward_points INTEGER NOT NULL DEFAULT 0,
+  hub_state_json TEXT NOT NULL DEFAULT '{"location":"hub"}',
+  completed_runs INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS auth_sessions (
   token_hash TEXT PRIMARY KEY,
   player_id TEXT NOT NULL REFERENCES players(id),
@@ -86,7 +93,16 @@ CREATE TABLE IF NOT EXISTS threads (
 `);
 
 export function ensurePlayer(playerId){
-  db.prepare(`INSERT INTO players(id) VALUES (?) ON CONFLICT(id) DO UPDATE SET last_seen_at=CURRENT_TIMESTAMP`).run(playerId);
+  const tx=db.transaction(()=>{
+    db.prepare(`INSERT INTO players(id) VALUES (?) ON CONFLICT(id) DO UPDATE SET last_seen_at=CURRENT_TIMESTAMP`).run(playerId);
+    db.prepare(`INSERT INTO player_profiles(player_id) VALUES (?) ON CONFLICT(player_id) DO NOTHING`).run(playerId);
+  });
+  tx();
+}
+export function getPlayerProfile(playerId){
+  const row=db.prepare("SELECT player_id,reward_points,hub_state_json,completed_runs FROM player_profiles WHERE player_id=?").get(playerId);
+  if(!row)return null;
+  return {...row,hubState:JSON.parse(row.hub_state_json)};
 }
 export function createAuthSession(tokenHash,playerId,expiresAt){
   db.prepare("INSERT OR REPLACE INTO auth_sessions(token_hash,player_id,expires_at) VALUES (?,?,?)")
@@ -167,6 +183,23 @@ export function createRun({id,playerId,scenarioId="town_origin"}){
   tx();
   return getRun(id);
 }
+export function settleRunForPlayer(runId,playerId,reward){
+  const tx=db.transaction(()=>{
+    const run=db.prepare("SELECT id,status,player_id FROM runs WHERE id=?").get(runId);
+    if(!run || run.player_id!==playerId) throw new Error("run_not_found");
+    if(run.status!=="active") throw new Error("run_already_settled");
+    db.prepare("UPDATE runs SET status='completed',updated_at=CURRENT_TIMESTAMP WHERE id=?").run(runId);
+    db.prepare(`
+      UPDATE player_profiles
+      SET reward_points=reward_points+?, completed_runs=completed_runs+1,
+          hub_state_json='{"location":"hub"}', updated_at=CURRENT_TIMESTAMP
+      WHERE player_id=?
+    `).run(reward,playerId);
+  });
+  tx();
+  return {run:getRun(runId),profile:getPlayerProfile(playerId)};
+}
+
 export function saveTurn({run,action,settled,narrative}){
   const tx=db.transaction(()=>{
     db.prepare(`
