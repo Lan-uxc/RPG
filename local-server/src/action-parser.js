@@ -10,7 +10,7 @@ export function parseAction(input) {
     risk:"normal"
   };
 
-  if (/前往|去|到|離開|搭|開車|騎車|走到|移動/.test(text)) intent.type="move";
+  if (/前往|去|到|進入|走進|離開|搭|開車|騎車|走到|移動/.test(text)) intent.type="move";
   if (/觀察|查看|調查|搜尋|檢查|翻找|研究/.test(text)) intent.type="investigate";
   if (/買|購買|賣|交易|付錢|付款/.test(text)) intent.type="trade";
   if (/問|詢問|聊天|交談|說服|威脅|拜託|請求/.test(text)) intent.type="social";
@@ -24,7 +24,7 @@ export function parseAction(input) {
   else if (/工業區/.test(text)) intent.destination="industrial_gate";
   else if (/港區入口|港口入口/.test(text)) intent.destination="harbor_gate";
   else if (/倉庫巷道|倉庫區/.test(text)) intent.destination="warehouse_lane";
-  else if (/舊倉庫|老倉庫/.test(text)) intent.destination="old_warehouse";
+  else if (/舊倉庫|老倉庫|倉庫/.test(text)) intent.destination="old_warehouse";
   else if (/防波堤/.test(text)) intent.destination="seawall";
 
   if (/礦泉水|水/.test(text)) intent.item="water";
