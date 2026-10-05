@@ -178,4 +178,25 @@ function run(overrides={}) {
   assert.equal(s.reward,190);
 }
 
+{
+  const closed=run({
+    location:"old_market",
+    threads:[{key:"market_anomaly",title:"x",status:"resolved",progress:100,state:{}}]
+  });
+  const s=settleAction(closed,"我再次深入調查屋頂命痕");
+  assert.equal(s.threadOps.some(x=>x.key==="market_anomaly"),false);
+}
+
+{
+  const base=run({
+    scenario_id:"harbor_trial",location:"warehouse_lane",
+    state:{hp:100,maxHp:100,san:100,maxSan:100,reward:0,facts:[],flags:{},visited:["warehouse_lane"],skills:[],bloodlines:[],equipment:[]},
+    enemies:[{key:"feral_dog",name:"野犬",alive:true,hp:45,location:"warehouse_lane",state:{}}]
+  });
+  const armed={...base,state:{...base.state,equipment:[{key:"utility_knife",slot:"hand",combatBonus:5}]}};
+  const plain=resolveEnemyCombat(base,parseAction("我用刀砍野犬"),"我用刀砍野犬");
+  const boosted=resolveEnemyCombat(armed,parseAction("我用刀砍野犬"),"我用刀砍野犬");
+  assert.ok(boosted.enemyOps[0].hp<plain.enemyOps[0].hp);
+}
+
 console.log("engine selftest: OK");
