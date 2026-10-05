@@ -270,6 +270,7 @@ export function returnFailedRunToHub(runId,playerId){
     const sc=loadScenario(run.scenario_id);
     penalty=Math.max(0,Number(sc.death?.rewardPointLoss||0));
     db.prepare(`UPDATE player_profiles SET reward_points=MAX(0,reward_points-?),hub_state_json='{"location":"hub"}',updated_at=CURRENT_TIMESTAMP WHERE player_id=?`).run(penalty,playerId);
+    db.prepare("UPDATE runs SET returned_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").run(runId);
   });
   tx();
   return {run:getRun(runId),profile:getPlayerProfile(playerId),penalty};
