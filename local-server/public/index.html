@@ -121,7 +121,15 @@ function renderHub(hub){
       '<br><small>'+e(x.description)+'</small><br>'+
       (isOwned?'<span class="badge done">已取得</span>':locked?'<span class="badge">尚未解鎖</span>':'<button class="tool" data-buy="'+e(x.key)+'">兌換</button>')+'</div>';
   }).join("")||"目前沒有可兌換項目。";
+  const stash=p.stash||[];
+  if(stash.length)q("hubShop").innerHTML+='<div class="row"><b>主神倉庫</b><br><small>撤離戰利品</small></div>'+stash.map(x=>'<div class="row">'+e(x.name)+' × '+e(x.quantity)+'　價值 '+e(x.meta?.value||0)+' <button class="tool" data-sell="'+e(x.key)+'">出售</button></div>').join("");
   q("hubShop").querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>buyUpgrade(b.dataset.buy));
+  q("hubShop").querySelectorAll("[data-sell]").forEach(b=>b.onclick=()=>sellStash(b.dataset.sell));
+}
+async function sellStash(itemKey){
+  const r=await fetch("/api/hub/stash/sell",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({itemKey,quantity:1})});
+  const j=await r.json(); if(!r.ok){alert(j.error||"出售失敗");return}
+  renderHub(await fetch("/api/hub").then(x=>x.json()));
 }
 async function buyUpgrade(itemKey){
   const r=await fetch("/api/hub/purchase",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({itemKey})});
