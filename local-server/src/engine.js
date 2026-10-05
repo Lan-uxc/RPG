@@ -7,6 +7,7 @@ import { resolveEnemyCombat } from "./enemy-engine.js";
 import { loadScenario } from "./scenario-loader.js";
 import { searchLoot, useConsumable } from "./loot-engine.js";
 import { searchContainer, discardLoot } from "./container-engine.js";
+import { interactEnvironment, movementBlockedByEnvironment } from "./environment-engine.js";
 
 function addMinutes(hhmm,minutes){
   const [h,m]=hhmm.split(":").map(Number);
@@ -47,15 +48,20 @@ export function settleAction(run,action){
   if(intent.type==="move" && intent.destination && intent.destination!==run.location){
     const path=findPath(world,run.location,intent.destination);
     if(path){
-      location=path.next;minutes=path.cost;
+      const blocker=movementBlockedByEnvironment(run,scenario,path.next);
+      if(blocker){outcome="blocked";minutes=1;}
+      else {location=path.next;minutes=path.cost;
       if(!next.visited.includes(location))next.visited.push(location);
       if(!path.arrived)outcome="travel_progress";
+      }
     }else outcome="blocked";
   }else if(intent.type==="wait"){
     minutes=/睡/.test(input)?120:30;
   }
 
   const facts=[...(next.facts||[])];
+  const env=interactEnvironment({...run,location},scenario,input);
+  if(env.handled){if(env.state)next.objectStates=env.state;facts.push(...env.facts);outcome="environment_changed";}
   if(intent.type==="investigate" && skills.has("trace_reader") && !facts.includes("痕跡判讀訓練正在影響你的調查方式")){
     facts.push("痕跡判讀訓練正在影響你的調查方式");
   }
