@@ -167,13 +167,7 @@ const armorReduction=equipment.reduce((n,x)=>n+Number(x.damageReduction||0),0);
     facts.push(...combat.facts);
     inventoryOps.push(...combat.inventoryOps);
     outcome=enemyResult.target.alive ? combat.outcome : "enemy_defeated";
-    if(next.hp<=0){
-      next.flags.incapacitated=true;
-      threadOps.push({
-        key:"medical_recovery",title:"處理重傷",status:"active",progress:0,
-        state:{source:"combat",hp:0}
-      });
-    }
+    if(next.hp<=0)next.flags.incapacitated=true;
   } else if(intent.type==="combat" && !enemyResult.target) {
     outcome="blocked";
   }
