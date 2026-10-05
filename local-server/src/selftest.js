@@ -372,4 +372,25 @@ function run(overrides={}) {
   assert.equal(second.threadOps[0].status,"resolved");
 }
 
+{
+  const r=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,bagCapacity:6,containerStates:{}},enemies:[]});
+  const s=settleAction(r,"我搜索生鏽置物櫃");
+  assert.ok(s.inventoryOps.some(x=>x.key==="anomaly_fragment"));
+}
+
+{
+  const r=run({inventory:[{key:"wallet",name:"錢包",quantity:1,meta:{cash:30}}]});
+  const s=settleActionSequence(r,"我買一瓶礦泉水，然後再買一瓶礦泉水");
+  const cash=s.inventoryOps.filter(x=>x.type==="cash").reduce((n,x)=>n+x.delta,0);
+  assert.equal(cash,-25);
+}
+
+{
+  const sc=loadScenario("harbor_trial");
+  const r=run({scenario_id:"harbor_trial",location:"harbor_gate",threads:[{key:"harbor_lockdown",title:"港區封鎖原因",status:"active",progress:0,state:{}}],
+    npcs:[{key:"dock_guard",name:"港區警衛",alive:true,relation:0,state:{location:"harbor_gate",evidence:[{key:"guard_testimony",match:"封鎖|昨晚|原因",weight:1,fact:"警衛口供"}]}}]});
+  const e=investigateEvidence(r,sc,"我詢問警衛昨晚封鎖原因");
+  assert.equal(e.evidence,"guard_testimony");
+}
+
 console.log("engine selftest: OK");
