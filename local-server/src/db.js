@@ -249,6 +249,9 @@ export function createRun({id,playerId,scenarioId="town_origin",loadout=[]}){
       th.run(id,t.key,t.title,t.status||"active",t.progress||0,JSON.stringify(t.state||{}));
     }
 
+    const npc=db.prepare("INSERT INTO npcs(run_id,npc_key,name,alive,relation,state_json) VALUES (?,?,?,?,?,?)");
+    for(const n of sc.npcs||[]){npc.run(id,n.key,n.name,n.alive===false?0:1,n.relation||0,JSON.stringify({...n.state,location:n.location||n.state?.location}));}
+
     const en=db.prepare("INSERT INTO enemies(run_id,enemy_key,name,alive,hp,location,state_json) VALUES (?,?,?,?,?,?,?)");
     for(const e of sc.enemies||[]){
       en.run(id,e.key,e.name,e.alive===false?0:1,e.hp??100,e.location,JSON.stringify(e.state||{}));
