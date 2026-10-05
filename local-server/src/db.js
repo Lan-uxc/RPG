@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { loadScenario } from "./scenario-loader.js";
+import { getShopItem } from "./shop-catalog.js";
 
 const dataDir=path.resolve("data");
 fs.mkdirSync(dataDir,{recursive:true});
@@ -22,6 +23,15 @@ CREATE TABLE IF NOT EXISTS player_profiles (
   hub_state_json TEXT NOT NULL DEFAULT '{"location":"hub"}',
   completed_runs INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS player_upgrades (
+  player_id TEXT NOT NULL REFERENCES players(id),
+  upgrade_key TEXT NOT NULL,
+  type TEXT NOT NULL,
+  level INTEGER NOT NULL DEFAULT 1,
+  state_json TEXT NOT NULL DEFAULT '{}',
+  acquired_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(player_id, upgrade_key)
 );
 CREATE TABLE IF NOT EXISTS auth_sessions (
   token_hash TEXT PRIMARY KEY,
@@ -99,10 +109,30 @@ export function ensurePlayer(playerId){
   });
   tx();
 }
+export function getPlayerUpgrades(playerId){
+  return db.prepare("SELECT upgrade_key,type,level,state_json,acquired_at FROM player_upgrades WHERE player_id=? ORDER BY acquired_at").all(playerId)
+    .map(x=>({key:x.upgrade_key,type:x.type,level:x.level,state:JSON.parse(x.state_json),acquiredAt:x.acquired_at}));
+}
 export function getPlayerProfile(playerId){
   const row=db.prepare("SELECT player_id,reward_points,hub_state_json,completed_runs FROM player_profiles WHERE player_id=?").get(playerId);
   if(!row)return null;
-  return {...row,hubState:JSON.parse(row.hub_state_json)};
+  return {...row,hubState:JSON.parse(row.hub_state_json),upgrades:getPlayerUpgrades(playerId)};
+}
+export function purchaseUpgrade(playerId,itemKey){
+  const item=getShopItem(itemKey);
+  if(!item)throw new Error("shop_item_not_found");
+  const tx=db.transaction(()=>{
+    const profile=db.prepare("SELECT reward_points FROM player_profiles WHERE player_id=?").get(playerId);
+    if(!profile)throw new Error("profile_not_found");
+    if(profile.reward_points<item.cost)throw new Error("insufficient_reward_points");
+    const owned=db.prepare("SELECT upgrade_key FROM player_upgrades WHERE player_id=? AND upgrade_key=?").get(playerId,item.key);
+    if(owned)throw new Error("upgrade_already_owned");
+    db.prepare("UPDATE player_profiles SET reward_points=reward_points-?,updated_at=CURRENT_TIMESTAMP WHERE player_id=?").run(item.cost,playerId);
+    db.prepare("INSERT INTO player_upgrades(player_id,upgrade_key,type,level,state_json) VALUES (?,?,?,?,?)")
+      .run(playerId,item.key,item.type,Number(item.effect?.level||1),JSON.stringify(item.effect||{}));
+  });
+  tx();
+  return {profile:getPlayerProfile(playerId),item};
 }
 export function createAuthSession(tokenHash,playerId,expiresAt){
   db.prepare("INSERT OR REPLACE INTO auth_sessions(token_hash,player_id,expires_at) VALUES (?,?,?)")
@@ -150,12 +180,22 @@ export function getRunForPlayer(runId,playerId){
 }
 export function createRun({id,playerId,scenarioId="town_origin"}){
   const sc=loadScenario(scenarioId);
+  const upgrades=getPlayerUpgrades(playerId);
+  const maxHp=(sc.start.hp??100)+upgrades.reduce((n,u)=>n+Number(u.state?.maxHp||0),0);
+  const maxSan=(sc.start.san??100)+upgrades.reduce((n,u)=>n+Number(u.state?.maxSan||0),0);
+  const skills=upgrades.map(u=>u.state?.skill).filter(Boolean);
+  const bloodlines=upgrades.filter(u=>u.state?.bloodline).map(u=>({key:u.state.bloodline,level:u.level}));
   const initialState={
-    hp:sc.start.hp??100,
-    san:sc.start.san??100,
+    hp:maxHp,
+    maxHp,
+    san:maxSan,
+    maxSan,
     reward:sc.start.reward??0,
     facts:[...(sc.facts||[])],
     flags:{},
+    skills,
+    bloodlines,
+    upgrades:upgrades.map(u=>u.key),
     visited:[sc.start.location]
   };
 
