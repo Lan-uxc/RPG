@@ -65,6 +65,9 @@ export function settleAction(run,action){
   if(env.handled){if(env.state)next.objectStates=env.state;facts.push(...env.facts);outcome="environment_changed";
 if(/打破|砸破|破窗/.test(input)){next.noise=Math.min(100,Number(next.noise||0)+40);facts.push("破裂聲在倉庫區傳開");}
 }
+  const stealth=stealthAction({...run,state:next,location},scenario,input);
+  if(stealth.handled){Object.assign(next,stealth.state);facts.push(...stealth.facts);outcome="stealthing";}
+  if(intent.type==="combat")Object.assign(next,breakStealth(next,"combat"));
   const environment=environmentEffects({...run,state:next,location},scenario);
 if(intent.type==="investigate" && environment.dark && !/手電筒|照明|開燈/.test(input)){facts.push("黑暗限制了你能確認的細節");outcome="investigation_limited";}
 if(intent.type==="investigate" && skills.has("trace_reader") && !facts.includes("痕跡判讀訓練正在影響你的調查方式")){
