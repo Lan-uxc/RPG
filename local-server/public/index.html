@@ -31,7 +31,7 @@ textarea{width:100%;min-height:58px;max-height:130px;resize:vertical;border:1px 
 </div>
 <div class="app">
 <header class="top"><div class="head"><div class="name">無限試煉空間</div><div class="online" id="health">檢查 AI…</div></div>
-<div class="meta"><span id="loc">地點：北台灣・邊緣城鎮</span><span id="time">時間：08:10</span><span id="turn">第 0 回合</span></div></header>
+<div class="meta"><span id="loc">地點：北台灣・邊緣城鎮</span><span id="time">時間：08:10</span><span id="turn">第 0 回合</span><span id="queue">AI 佇列：0</span></div></header>
 
 <main id="adventure" class="panel on">
 <section class="scene"><h1>清晨，小鎮開始醒來</h1><p>建議行動只是捷徑。合理的自由輸入永遠有效。</p></section>
@@ -49,7 +49,7 @@ textarea{width:100%;min-height:58px;max-height:130px;resize:vertical;border:1px 
 <button class="sbtn">我直接去公車站，搭車前往台北。</button>
 </div>
 <div class="composer"><div class="input"><textarea id="input" maxlength="1000" placeholder="直接輸入你想做的事"></textarea><button class="go" id="go">執行</button></div><div class="hint">系統只處理你這一回合的行動，不替你擅自決定下一步。</div></div>
-<div class="tools"><button class="tool" id="historyBtn">歷史行動</button><button class="tool" id="newBtn">重新開始</button></div>
+<div class="tools"><button class="tool" id="historyBtn">歷史行動</button><button class="tool" id="settleBtn" style="display:none">副本結算</button><button class="tool" id="newBtn">返回主神空間</button></div>
 <div class="drawer" id="history"></div>
 </main>
 
@@ -68,7 +68,7 @@ textarea{width:100%;min-height:58px;max-height:130px;resize:vertical;border:1px 
 </nav>
 
 <script>
-const K="rpg-local-save-v3";let s=JSON.parse(localStorage.getItem(K)||"null")||{};let currentRun=null;let worldNames={};
+const K="rpg-local-save-v4";let s=JSON.parse(localStorage.getItem(K)||"null")||{};let currentRun=null;let worldNames={};let currentSettlement=null;
 const q=id=>document.getElementById(id);
 function e(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 function placeName(key){return worldNames[key]||key}
@@ -86,6 +86,10 @@ async function loadWorld(scenarioId){
 }
 async function loadScenarios(){
   await ensureAuth();
+  const me=await fetch("/api/me").then(r=>r.json()).catch(()=>null);
+  if(me?.profile){
+    q("scenarioList").innerHTML='<div class="row"><b>主神空間</b><br><small>獎勵點：'+e(me.profile.reward_points)+'　完成副本：'+e(me.profile.completed_runs)+'</small></div>';
+  }
   if(s.runId){
     const r=await fetch("/api/run/"+s.runId);
     if(r.ok){
@@ -99,7 +103,7 @@ async function loadScenarios(){
   }
   const r=await fetch("/api/scenarios");
   const j=await r.json();
-  q("scenarioList").innerHTML=(j.scenarios||[]).map(x=>'<button class="sbtn" style="width:100%;margin:5px 0" data-scenario="'+e(x.id)+'"><b>'+e(x.name)+'</b><br><small>'+e(x.id)+'</small></button>').join("")||'<div class="row">沒有可用副本。</div>';
+  q("scenarioList").innerHTML=(q("scenarioList").innerHTML||"")+(j.scenarios||[]).map(x=>'<button class="sbtn" style="width:100%;margin:5px 0" data-scenario="'+e(x.id)+'"><b>'+e(x.name)+'</b><br><small>'+e(x.id)+'</small></button>').join("")||'<div class="row">沒有可用副本。</div>';
   q("scenarioList").querySelectorAll("[data-scenario]").forEach(b=>b.onclick=()=>startScenario(b.dataset.scenario));
 }
 async function startScenario(scenarioId){
@@ -128,7 +132,9 @@ async function act(action){
   try{
     const r=await fetch("/api/run/"+s.runId+"/action",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action})});
     const j=await r.json();if(!r.ok)throw Error(j.error||"request_failed");
-    q("story").textContent=j.narrative;q("current").textContent="本回合行動："+action;await refresh();
+    q("story").textContent=j.narrative;q("current").textContent="本回合行動："+action;currentSettlement=j.settlement||null;
+    q("settleBtn").style.display=currentSettlement?.complete?"inline-block":"none";
+    await refresh();
   }catch(err){q("current").textContent="執行失敗："+err.message}
   finally{document.body.classList.remove("loading");q("input").value=""}
 }
@@ -136,12 +142,23 @@ q("go").onclick=()=>act(q("input").value);
 q("input").addEventListener("keydown",x=>{if(x.key==="Enter"&&!x.shiftKey){x.preventDefault();act(q("input").value)}});
 document.querySelectorAll(".sbtn").forEach(b=>b.onclick=()=>act(b.textContent));
 q("historyBtn").onclick=()=>q("history").classList.toggle("on");
-q("newBtn").onclick=()=>{if(confirm("確定離開目前副本並重新選擇？")){localStorage.removeItem(K);location.reload()}};
+q("settleBtn").onclick=async()=>{
+  if(!s.runId)return;
+  const r=await fetch("/api/run/"+s.runId+"/settle",{method:"POST"});
+  const j=await r.json();
+  if(!r.ok){q("current").textContent="目前還不能結算："+(j.error||"not_ready");return}
+  q("story").textContent="副本結算完成。\n\n獲得獎勵點："+j.settlement.reward+"。\n\n你已回到主神空間。";
+  q("current").textContent="副本已結算";
+  localStorage.removeItem(K);s={};
+  setTimeout(()=>location.reload(),900);
+};
+q("newBtn").onclick=()=>{if(confirm("確定返回主神空間？未完成副本不會發放獎勵。")){localStorage.removeItem(K);location.reload()}};
 document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
   document.querySelectorAll(".panel").forEach(x=>x.classList.remove("on"));q(b.dataset.panel).classList.add("on");
 });
 fetch("/api/health").then(r=>r.json()).then(j=>q("health").textContent=j.ollama?"AI 在線・"+j.model:"AI fallback 模式").catch(()=>q("health").textContent="伺服器連線異常");
+setInterval(()=>fetch("/api/queue").then(r=>r.ok?r.json():null).then(j=>{if(j)q("queue").textContent="AI 佇列："+(j.pending||0)+(j.active?"・生成中":"")}).catch(()=>{}),1500);
 loadScenarios().catch(err=>{q("scenarioList").innerHTML='<div class="row">啟動失敗：'+e(err.message)+'</div>'});
 </script>
 </body>
