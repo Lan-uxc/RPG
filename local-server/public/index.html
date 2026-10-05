@@ -26,7 +26,9 @@ textarea{width:100%;min-height:58px;max-height:130px;resize:vertical;border:1px 
   <div style="width:min(520px,94vw);border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:18px">
     <div style="font-size:18px;font-weight:700;margin-bottom:8px">無限試煉空間</div>
     <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:14px">選擇一個副本開始。畫面只有文字與狀態，不使用圖片素材。</div>
-    <div id="scenarioList"><div class="row">讀取副本中…</div></div>
+    <div id="hubProfile" class="row">讀取主神空間資料…</div>
+    <div class="card"><h2>主神兌換</h2><div id="hubShop">讀取中…</div></div>
+    <div class="card"><h2>進入副本</h2><div id="scenarioList"><div class="row">讀取副本中…</div></div></div>
   </div>
 </div>
 <div class="app">
@@ -86,9 +88,9 @@ async function loadWorld(scenarioId){
 }
 async function loadScenarios(){
   await ensureAuth();
-  const me=await fetch("/api/me").then(r=>r.json()).catch(()=>null);
-  if(me?.profile){
-    q("scenarioList").innerHTML='<div class="row"><b>主神空間</b><br><small>獎勵點：'+e(me.profile.reward_points)+'　完成副本：'+e(me.profile.completed_runs)+'</small></div>';
+  const hub=await fetch("/api/hub").then(r=>r.json()).catch(()=>null);
+  if(hub?.profile){
+    renderHub(hub);
   }
   if(s.runId){
     const r=await fetch("/api/run/"+s.runId);
@@ -103,8 +105,28 @@ async function loadScenarios(){
   }
   const r=await fetch("/api/scenarios");
   const j=await r.json();
-  q("scenarioList").innerHTML=(q("scenarioList").innerHTML||"")+(j.scenarios||[]).map(x=>'<button class="sbtn" style="width:100%;margin:5px 0" data-scenario="'+e(x.id)+'"><b>'+e(x.name)+'</b><br><small>'+e(x.id)+'</small></button>').join("")||'<div class="row">沒有可用副本。</div>';
+  q("scenarioList").innerHTML=(j.scenarios||[]).map(x=>'<button class="sbtn" style="width:100%;margin:5px 0" data-scenario="'+e(x.id)+'"><b>'+e(x.name)+'</b><br><small>'+e(x.id)+'</small></button>').join("")||'<div class="row">沒有可用副本。</div>';
   q("scenarioList").querySelectorAll("[data-scenario]").forEach(b=>b.onclick=()=>startScenario(b.dataset.scenario));
+}
+function renderHub(hub){
+  const p=hub.profile||{};
+  const owned=new Set((p.upgrades||[]).map(x=>x.key));
+  q("hubProfile").innerHTML='<b>主神空間</b><br><small>獎勵點：'+e(p.reward_points||0)+'　完成副本：'+e(p.completed_runs||0)+'</small>'+
+    ((p.upgrades||[]).length?'<br><small>永久能力：'+(p.upgrades||[]).map(x=>e(x.key)).join("、")+'</small>':'');
+  q("hubShop").innerHTML=(hub.shop||[]).map(x=>{
+    const isOwned=owned.has(x.key);
+    return '<div class="row"><b>'+e(x.name)+'</b>　'+e(x.cost)+' 點'+
+      '<br><small>'+e(x.description)+'</small><br>'+
+      (isOwned?'<span class="badge done">已取得</span>':'<button class="tool" data-buy="'+e(x.key)+'">兌換</button>')+'</div>';
+  }).join("")||"目前沒有可兌換項目。";
+  q("hubShop").querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>buyUpgrade(b.dataset.buy));
+}
+async function buyUpgrade(itemKey){
+  const r=await fetch("/api/hub/purchase",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({itemKey})});
+  const j=await r.json();
+  if(!r.ok){alert(j.error==="insufficient_reward_points"?"獎勵點不足":j.error==="upgrade_already_owned"?"已經取得這項能力":j.error||"兌換失敗");return}
+  const hub=await fetch("/api/hub").then(x=>x.json());
+  renderHub(hub);
 }
 async function startScenario(scenarioId){
   const r=await fetch("/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({scenarioId})});
@@ -122,7 +144,9 @@ function render(run,recent=[]){
   q("items").innerHTML=(run.inventory||[]).map(x=>'<div class="row">'+e(x.name)+' × '+e(x.quantity)+(x.meta?.cash!=null?'　現金 '+e(x.meta.cash)+' 元':'')+'</div>').join("")||"空。";
   q("npcs").innerHTML=(run.npcs||[]).map(x=>'<div class="row '+(!x.alive?"dead":"")+'"><b>'+e(x.name)+'</b>　'+(x.alive?"存活":"死亡")+'　關係 '+e(x.relation)+(x.state?.lastAutonomousAction?'<br><small>最近行動：'+e(x.state.lastAutonomousAction)+'</small>':'')+'</div>').join("")||"目前沒有同行人物。";
   q("enemies").innerHTML=(run.enemies||[]).map(x=>'<div class="row '+(!x.alive?"dead":"")+'"><b>'+e(x.name)+'</b>　'+(x.alive?'HP '+e(x.hp):'已失去戰鬥能力')+'<br><small>'+e(placeName(x.location))+'</small></div>').join("")||"目前沒有敵對目標。";
-  q("characterState").textContent="HP "+(run.state?.hp??100)+" / SAN "+(run.state?.san??100)+" / 獎勵點 "+(run.state?.reward??0);
+  q("characterState").innerHTML="HP "+e(run.state?.hp??100)+" / "+e(run.state?.maxHp??100)+"　SAN "+e(run.state?.san??100)+" / "+e(run.state?.maxSan??100)+
+    ((run.state?.skills||[]).length?"<br><small>技能："+(run.state.skills||[]).map(e).join("、")+"</small>":"")+
+    ((run.state?.bloodlines||[]).length?"<br><small>血統："+(run.state.bloodlines||[]).map(x=>e(x.key)+" Lv."+e(x.level)).join("、")+"</small>":"");
   q("facts").innerHTML=(run.state?.facts||[]).map(x=>'<div class="row">'+e(x)+'</div>').join("")||"尚無紀錄。";
 }
 async function refresh(){const r=await fetch("/api/run/"+s.runId);if(r.ok){const j=await r.json();render(j.run,j.recent)}}
