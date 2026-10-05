@@ -190,7 +190,8 @@ function render(run,recent=[]){
   currentRun=run;q("loc").textContent="地點："+placeName(run.location);q("time").textContent="時間："+run.world_time;q("turn").textContent="第 "+run.turn+" 回合";
   if(run.turn>0&&recent.length)q("story").textContent=recent[recent.length-1].narrative;
   q("history").innerHTML=recent.slice().reverse().map(x=>'<div class="hist"><b>#'+x.turn_no+'</b> '+e(x.player_input)+'</div>').join("")||'<div class="hist">尚無歷史。</div>';
-  const used=(run.inventory||[]).reduce((n,x)=>n+(x.meta?.loot?Number(x.meta?.slots||1)*Number(x.quantity||0):0),0);\n  q("threads").innerHTML=(run.threads||[]).map(x=>'<div class="row"><b>'+e(x.title)+'</b><span class="badge '+(x.status==="resolved"?"done":"")+'">'+e(x.status)+'</span><br><small>進度 '+e(x.progress)+'</small></div>').join("")||"尚無事件。";
+  const used=(run.inventory||[]).reduce((n,x)=>n+(x.meta?.loot?Number(x.meta?.slots||1)*Number(x.quantity||0):0),0);
+  q("threads").innerHTML=(run.threads||[]).map(x=>'<div class="row"><b>'+e(x.title)+'</b><span class="badge '+(x.status==="resolved"?"done":"")+'">'+e(x.status)+'</span><br><small>進度 '+e(x.progress)+'</small></div>').join("")||"尚無事件。";
   q("items").innerHTML='<div class="row"><b>戰利品容量</b> '+e(used)+' / '+e(run.state?.bagCapacity||6)+'</div>'+(run.inventory||[]).map(x=>'<div class="row">'+e(x.name)+' × '+e(x.quantity)+(x.meta?.cash!=null?'　現金 '+e(x.meta.cash)+' 元':'')+'</div>').join("")||"空。";
   q("npcs").innerHTML=(run.npcs||[]).map(x=>'<div class="row '+(!x.alive?"dead":"")+'"><b>'+e(x.name)+'</b>　'+(x.alive?"存活":"死亡")+'　關係 '+e(x.relation)+(x.state?.lastAutonomousAction?'<br><small>最近行動：'+e(x.state.lastAutonomousAction)+'</small>':'')+'</div>').join("")||"目前沒有同行人物。";
   q("enemies").innerHTML=(run.enemies||[]).map(x=>'<div class="row '+(!x.alive?"dead":"")+'"><b>'+e(x.name)+'</b>　'+(x.alive?'HP '+e(x.hp):'已失去戰鬥能力')+'<br><small>'+e(placeName(x.location))+'</small></div>').join("")||"目前沒有敵對目標。";
@@ -198,7 +199,8 @@ function render(run,recent=[]){
     ((run.state?.skills||[]).length?"<br><small>技能："+(run.state.skills||[]).map(e).join("、")+"</small>":"")+
     ((run.state?.bloodlines||[]).length?"<br><small>血統："+(run.state.bloodlines||[]).map(x=>e(x.key)+" Lv."+e(x.level)).join("、")+"</small>":"");
   q("facts").innerHTML=(run.state?.facts||[]).map(x=>'<div class="row">'+e(x)+'</div>').join("")||"尚無紀錄。";
-  if(run.status==="active"&&currentSettlement?.complete)q("settleBtn").style.display="inline-block";\n  if(run.status==="failed"){
+  if(run.status==="active"&&currentSettlement?.complete)q("settleBtn").style.display="inline-block";
+  if(run.status==="failed"){
     q("settleBtn").style.display="inline-block";
     q("settleBtn").textContent="死亡回歸";
     q("current").textContent="本次副本已失敗。你只能返回主神空間。";
