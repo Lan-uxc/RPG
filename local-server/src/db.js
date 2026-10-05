@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { loadScenario } from "./scenario-loader.js";
-import { getShopItem } from "./shop-catalog.js";
+import { getShopItem, requirementsMet } from "./shop-catalog.js";
 
 const dataDir=path.resolve("data");
 fs.mkdirSync(dataDir,{recursive:true});
@@ -125,6 +125,8 @@ export function purchaseUpgrade(playerId,itemKey){
     const profile=db.prepare("SELECT reward_points FROM player_profiles WHERE player_id=?").get(playerId);
     if(!profile)throw new Error("profile_not_found");
     if(profile.reward_points<item.cost)throw new Error("insufficient_reward_points");
+    const allUpgrades=getPlayerUpgrades(playerId);
+    if(!requirementsMet(item,{profile,upgrades:allUpgrades}))throw new Error("requirements_not_met");
     const owned=db.prepare("SELECT upgrade_key FROM player_upgrades WHERE player_id=? AND upgrade_key=?").get(playerId,item.key);
     if(owned)throw new Error("upgrade_already_owned");
     db.prepare("UPDATE player_profiles SET reward_points=reward_points-?,updated_at=CURRENT_TIMESTAMP WHERE player_id=?").run(item.cost,playerId);
@@ -178,9 +180,13 @@ export function getRunForPlayer(runId,playerId){
   const run=getRun(runId);
   return run && run.player_id===playerId ? run : null;
 }
-export function createRun({id,playerId,scenarioId="town_origin"}){
+export function createRun({id,playerId,scenarioId="town_origin",loadout=[]}){
   const sc=loadScenario(scenarioId);
   const upgrades=getPlayerUpgrades(playerId);
+  const ownedEquipment=new Map(upgrades.filter(u=>u.state?.equipment).map(u=>[u.key,u]));
+  const requested=[...new Set(Array.isArray(loadout)?loadout:[])].slice(0,2);
+  if(requested.some(key=>!ownedEquipment.has(key)))throw new Error("invalid_loadout");
+  const equipment=requested.map(key=>ownedEquipment.get(key));
   const maxHp=(sc.start.hp??100)+upgrades.reduce((n,u)=>n+Number(u.state?.maxHp||0),0);
   const maxSan=(sc.start.san??100)+upgrades.reduce((n,u)=>n+Number(u.state?.maxSan||0),0);
   const skills=upgrades.map(u=>u.state?.skill).filter(Boolean);
@@ -196,6 +202,7 @@ export function createRun({id,playerId,scenarioId="town_origin"}){
     skills,
     bloodlines,
     upgrades:upgrades.map(u=>u.key),
+    equipment:equipment.map(u=>({key:u.key,...u.state})),
     visited:[sc.start.location]
   };
 
@@ -208,6 +215,10 @@ export function createRun({id,playerId,scenarioId="town_origin"}){
     const inv=db.prepare("INSERT INTO inventory(run_id,item_key,name,quantity,meta_json) VALUES (?,?,?,?,?)");
     for(const item of sc.start.inventory||[]){
       inv.run(id,item.key,item.name,item.quantity||1,JSON.stringify(item.meta||{}));
+    }
+    for(const gear of equipment){
+      const item=getShopItem(gear.key);
+      inv.run(id,gear.key,item?.name||gear.key,1,JSON.stringify({permanent:true,equipment:true,...gear.state}));
     }
 
     const th=db.prepare("INSERT INTO threads(run_id,thread_key,title,status,progress,state_json) VALUES (?,?,?,?,?,?)");
