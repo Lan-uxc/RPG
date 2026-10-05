@@ -16,6 +16,9 @@ import { stealthAction, detectionState } from "./stealth-engine.js";
 import { resolveThreatByAction, threatsResolved } from "./threat-engine.js";
 import { investigateEvidence } from "./investigation-engine.js";
 import { evolveWorld, evolveNpcs } from "./world-evolution.js";
+import { db } from "./db.js";
+import { citySnapshot, buyProperty, openBusiness, befriend, challengePvp, respondPvp } from "./city-engine.js";
+import { createListing, buyListing, publishIntel, acquireIntel } from "./city-market.js";
 
 function run(overrides={}) {
   return {
@@ -417,6 +420,31 @@ function run(overrides={}) {
   const r=run({scenario_id:"harbor_trial",turn:3,world_time:"22:00",threads:[{key:"harbor_lockdown",title:"x",status:"active",progress:0,state:{}}]});
   const s=settleAction(r,"我等待一下");
   assert.ok(s.state.world?.events?.some(x=>x.key==="lockdown_tightens"));
+}
+
+{
+  const a="city_test_a",b="city_test_b";
+  db.prepare("DELETE FROM city_pvp WHERE challenger_id IN (?,?) OR target_id IN (?,?)").run(a,b,a,b);
+  db.prepare("DELETE FROM city_relations WHERE a_id IN (?,?) OR b_id IN (?,?)").run(a,b,a,b);
+  db.prepare("DELETE FROM city_intel_access WHERE player_id IN (?,?)").run(a,b);
+  db.prepare("DELETE FROM city_intel WHERE seller_id IN (?,?)").run(a,b);
+  db.prepare("DELETE FROM city_listings WHERE seller_id IN (?,?)").run(a,b);
+  db.prepare("DELETE FROM city_businesses WHERE owner_id IN (?,?)").run(a,b);
+  db.prepare("UPDATE city_properties SET owner_id=NULL WHERE owner_id IN (?,?)").run(a,b);
+  db.prepare("DELETE FROM player_stash WHERE player_id IN (?,?)").run(a,b);
+  db.prepare("DELETE FROM player_profiles WHERE player_id IN (?,?)").run(a,b);
+  db.prepare("DELETE FROM players WHERE id IN (?,?)").run(a,b);
+  db.prepare("INSERT INTO players(id) VALUES (?),(?)").run(a,b);
+  db.prepare("INSERT INTO player_profiles(player_id,reward_points) VALUES (?,1000),(?,1000)").run(a,b);
+  db.prepare("INSERT INTO player_stash(player_id,item_key,name,quantity,meta_json) VALUES (?,?,?,?,?)").run(a,"test_relic","測試遺物",2,JSON.stringify({value:50}));
+  buyProperty(a,"market_s01"); openBusiness(a,{propertyId:"market_s01",name:"測試商店",kind:"雜貨"});
+  assert.equal(citySnapshot(a).businesses.some(x=>x.owner_id===a),true);
+  const listed=createListing(a,{itemKey:"test_relic",quantity:1,unitPrice:120}); const listing=listed.listings.find(x=>x.seller_id===a);
+  buyListing(b,listing.id); assert.equal(db.prepare("SELECT quantity FROM player_stash WHERE player_id=? AND item_key='test_relic'").get(b).quantity,1);
+  publishIntel(a,{title:"測試情報",body:"只有購買後才應取得內容",price:30}); const intel=citySnapshot(a); const intelId=db.prepare("SELECT id FROM city_intel WHERE seller_id=? ORDER BY created_at DESC").get(a).id;
+  assert.equal(acquireIntel(b,intelId).intel.body,"只有購買後才應取得內容");
+  befriend(a,b); assert.equal(citySnapshot(a).relations[0].status,"friends");
+  challengePvp(a,b); const duel=citySnapshot(b).pvp.find(x=>x.challenger_id===a); respondPvp(b,duel.id,true); assert.equal(citySnapshot(a).pvp.find(x=>x.id===duel.id).status,"accepted");
 }
 
 console.log("engine selftest: OK");
