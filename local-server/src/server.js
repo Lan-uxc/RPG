@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   ensurePlayer, createRun, getRunForPlayer, getRecentTurns, saveTurn,
   createAuthSession, getAuthSession, deleteExpiredSessions,
-  getPlayerProfile, settleRunForPlayer, purchaseUpgrade
+  getPlayerProfile, settleRunForPlayer, purchaseUpgrade, returnFailedRunToHub
 } from "./db.js";
 import { settleAction, fallbackNarrative, getWorldForScenario } from "./engine.js";
 import { enqueue, narrate, getQueueStatus } from "./ollama.js";
@@ -94,7 +94,7 @@ app.post("/api/hub/purchase",requirePlayer,(req,res)=>{
     res.json(result);
   }catch(err){
     const status=["shop_item_not_found"].includes(err.message)?404:
-      ["insufficient_reward_points","upgrade_already_owned"].includes(err.message)?409:400;
+      ["insufficient_reward_points","upgrade_already_owned","requirements_not_met"].includes(err.message)?409:400;
     res.status(status).json({error:err.message||"purchase_failed"});
   }
 });
@@ -112,7 +112,8 @@ app.post("/api/session",requirePlayer,(req,res)=>{
   const scenarioId=String(req.body?.scenarioId||"town_origin").slice(0,80);
   try{
     const runId=crypto.randomUUID();
-    const run=createRun({id:runId,playerId:req.playerId,scenarioId});
+    const loadout=Array.isArray(req.body?.loadout)?req.body.loadout:[];
+    const run=createRun({id:runId,playerId:req.playerId,scenarioId,loadout});
     res.json({run});
   }catch{
     res.status(400).json({error:"invalid_scenario"});
@@ -184,6 +185,15 @@ app.post("/api/run/:id/action",requirePlayer,async(req,res)=>{
     res.json(payload);
   }catch(err){
     res.status(err.status||500).json({error:err.message||"action_failed"});
+  }
+});
+
+app.post("/api/run/:id/return",requirePlayer,(req,res)=>{
+  try{
+    const result=returnFailedRunToHub(req.params.id,req.playerId);
+    res.json(result);
+  }catch(err){
+    res.status(err.message==="run_not_found"?404:409).json({error:err.message||"return_failed"});
   }
 });
 
