@@ -9,6 +9,7 @@ import { searchLoot, useConsumable } from "./loot-engine.js";
 import { searchContainer, discardLoot } from "./container-engine.js";
 import { interactEnvironment, movementBlockedByEnvironment, environmentEffects } from "./environment-engine.js";
 import { stealthAction, breakStealth } from "./stealth-engine.js";
+import { resolveThreatByAction } from "./threat-engine.js";
 
 function addMinutes(hhmm,minutes){
   const [h,m]=hhmm.split(":").map(Number);
@@ -133,6 +134,10 @@ if(intent.type==="investigate" && skills.has("trace_reader") && !facts.includes(
     facts.push(consumable.fact);
     outcome="consumable_used";
   }
+
+  const threat=resolveThreatByAction(run,input);
+  enemyOps.push(...threat.enemyOps);facts.push(...threat.facts);
+  if(threat.handled && threat.enemyOps.length)outcome="threat_resolved";
 
   const enemyResult=resolveEnemyCombat(run,intent,input);
   enemyOps.push(...enemyResult.enemyOps);
