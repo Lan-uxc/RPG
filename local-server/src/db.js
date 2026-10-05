@@ -234,6 +234,17 @@ export function createRun({id,playerId,scenarioId="town_origin",loadout=[]}){
   tx();
   return getRun(id);
 }
+export function returnFailedRunToHub(runId,playerId){
+  const tx=db.transaction(()=>{
+    const run=db.prepare("SELECT id,status,player_id FROM runs WHERE id=?").get(runId);
+    if(!run || run.player_id!==playerId)throw new Error("run_not_found");
+    if(run.status!=="failed")throw new Error("run_not_failed");
+    db.prepare("UPDATE player_profiles SET hub_state_json='{\"location\":\"hub\"}',updated_at=CURRENT_TIMESTAMP WHERE player_id=?").run(playerId);
+  });
+  tx();
+  return {run:getRun(runId),profile:getPlayerProfile(playerId)};
+}
+
 export function settleRunForPlayer(runId,playerId,reward){
   const tx=db.transaction(()=>{
     const run=db.prepare("SELECT id,status,player_id FROM runs WHERE id=?").get(runId);
