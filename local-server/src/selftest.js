@@ -20,6 +20,7 @@ import { db } from "./db.js";
 import { citySnapshot, buyProperty, openBusiness, befriend, challengePvp, respondPvp } from "./city-engine.js";
 import { createListing, buyListing, publishIntel, acquireIntel } from "./city-market.js";
 import { directAttack, wantedState } from "./city-law.js";
+import { directAttack, wantedState } from "./city-law.js";
 
 function run(overrides={}) {
   return {
