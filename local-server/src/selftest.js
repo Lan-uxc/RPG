@@ -8,6 +8,7 @@ import { loadScenario, listScenarios } from "./scenario-loader.js";
 import { discloseNpcInformation } from "./npc-disclosure.js";
 import { resolveEnemyCombat } from "./enemy-engine.js";
 import { evaluateSettlement } from "./settlement.js";
+import { lootForDefeat, useConsumable } from "./loot-engine.js";
 
 function run(overrides={}) {
   return {
@@ -197,6 +198,18 @@ function run(overrides={}) {
   const plain=resolveEnemyCombat(base,parseAction("我用刀砍野犬"),"我用刀砍野犬");
   const boosted=resolveEnemyCombat(armed,parseAction("我用刀砍野犬"),"我用刀砍野犬");
   assert.ok(boosted.enemyOps[0].hp<plain.enemyOps[0].hp);
+}
+
+{
+  const r=run({inventory:[...run().inventory,{key:"bandage",name:"簡易繃帶",quantity:1,meta:{extractable:true}}],state:{...run().state,hp:50,maxHp:100}});
+  const u=useConsumable(r,"我用繃帶包紮傷口");
+  assert.equal(u.used,true); assert.equal(u.state.hp,68); assert.equal(u.ops[0].type,"remove");
+}
+
+{
+  const r=run({enemies:[{key:"feral_dog",name:"野犬",alive:false,hp:0,location:"town_edge",state:{}}]});
+  const loot=lootForDefeat(r,r.enemies[0]);
+  assert.equal(loot[0].key,"dog_tag"); assert.equal(loot[0].meta.extractable,true);
 }
 
 console.log("engine selftest: OK");
