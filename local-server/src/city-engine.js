@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS city_businesses(id TEXT PRIMARY KEY,owner_id TEXT NOT
 CREATE TABLE IF NOT EXISTS city_relations(a_id TEXT NOT NULL REFERENCES players(id),b_id TEXT NOT NULL REFERENCES players(id),status TEXT NOT NULL DEFAULT 'friends',affinity INTEGER NOT NULL DEFAULT 0,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(a_id,b_id));
 CREATE TABLE IF NOT EXISTS city_pvp(id TEXT PRIMARY KEY,challenger_id TEXT NOT NULL REFERENCES players(id),target_id TEXT NOT NULL REFERENCES players(id),status TEXT NOT NULL DEFAULT 'pending',result_json TEXT NOT NULL DEFAULT '{}',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
 `);
+const pvpCols=db.prepare("PRAGMA table_info(city_pvp)").all();
+if(!pvpCols.some(x=>x.name==="terms_json"))db.exec("ALTER TABLE city_pvp ADD COLUMN terms_json TEXT NOT NULL DEFAULT '{}'");
 const seed=db.prepare("INSERT OR IGNORE INTO city_properties(id,district,name,kind,price,state_json) VALUES (?,?,?,?,?,?)");
 [["res_a01","居住區","A01 小型公寓","home",300],["res_a02","居住區","A02 小型公寓","home",350],["market_s01","交易街","S01 街角店面","shop",600],["market_s02","交易街","S02 小型工作室","shop",500]].forEach(x=>seed.run(...x,"{}"));
 
@@ -14,7 +16,7 @@ export function citySnapshot(playerId){
  const properties=db.prepare("SELECT id,district,name,kind,price,owner_id FROM city_properties ORDER BY district,price").all();
  const businesses=db.prepare("SELECT id,owner_id,property_id,name,kind FROM city_businesses ORDER BY created_at DESC LIMIT 50").all();
  const relations=db.prepare("SELECT a_id,b_id,status,affinity FROM city_relations WHERE a_id=? OR b_id=?").all(playerId,playerId);
- const pvp=db.prepare("SELECT id,challenger_id,target_id,status,result_json FROM city_pvp WHERE challenger_id=? OR target_id=? ORDER BY created_at DESC LIMIT 20").all(playerId,playerId).map(x=>({...x,result:JSON.parse(x.result_json)}));
+ const pvp=db.prepare("SELECT id,challenger_id,target_id,status,result_json,terms_json FROM city_pvp WHERE challenger_id=? OR target_id=? ORDER BY created_at DESC LIMIT 20").all(playerId,playerId).map(x=>({...x,result:JSON.parse(x.result_json),terms:JSON.parse(x.terms_json||"{}")}));
  return {profile:getPlayerProfile(playerId),districts:["中央廣場","居住區","交易街","情報館","競技場"],properties,businesses,relations,pvp};
 }
 export function buyProperty(playerId,id){
@@ -27,8 +29,10 @@ export function openBusiness(playerId,{propertyId,name,kind}){
 export function befriend(playerId,targetId){
  if(playerId===targetId)throw Error("invalid_target");if(!db.prepare("SELECT id FROM players WHERE id=?").get(targetId))throw Error("player_not_found");const [a,b]=[playerId,targetId].sort();db.prepare("INSERT INTO city_relations(a_id,b_id,status,affinity) VALUES (?,?,'friends',10) ON CONFLICT(a_id,b_id) DO UPDATE SET status='friends',affinity=MAX(affinity,10),updated_at=CURRENT_TIMESTAMP").run(a,b);return citySnapshot(playerId);
 }
-export function challengePvp(playerId,targetId){
- if(playerId===targetId)throw Error("invalid_target");if(!db.prepare("SELECT id FROM players WHERE id=?").get(targetId))throw Error("player_not_found");db.prepare("INSERT INTO city_pvp(id,challenger_id,target_id) VALUES (?,?,?)").run(crypto.randomUUID(),playerId,targetId);return citySnapshot(playerId);
+export function challengePvp(playerId,targetId,terms={}){
+ if(playerId===targetId)throw Error("invalid_target");if(!db.prepare("SELECT id FROM players WHERE id=?").get(targetId))throw Error("player_not_found");
+ const clean={mode:"arena",stake:Math.max(0,Math.floor(Number(terms.stake)||0)),lethal:Boolean(terms.lethal),rules:String(terms.rules||"").slice(0,300)};
+ db.prepare("INSERT INTO city_pvp(id,challenger_id,target_id,terms_json) VALUES (?,?,?,?)").run(crypto.randomUUID(),playerId,targetId,JSON.stringify(clean));return citySnapshot(playerId);
 }
 export function respondPvp(playerId,id,accept){
  const p=db.prepare("SELECT * FROM city_pvp WHERE id=? AND target_id=? AND status='pending'").get(id,playerId);if(!p)throw Error("pvp_not_found");db.prepare("UPDATE city_pvp SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").run(accept?"accepted":"declined",id);return citySnapshot(playerId);
