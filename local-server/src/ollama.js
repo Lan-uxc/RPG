@@ -1,13 +1,26 @@
-let chain = Promise.resolve();
+let chain=Promise.resolve();
+let pending=0;
+let active=0;
 
-export function enqueue(task) {
-  const run = chain.then(task, task);
-  chain = run.catch(() => {});
+export function getQueueStatus(){
+  return {pending,active};
+}
+
+export function enqueue(task){
+  pending++;
+  const wrapped=async()=>{
+    pending=Math.max(0,pending-1);
+    active++;
+    try{return await task()}
+    finally{active=Math.max(0,active-1)}
+  };
+  const run=chain.then(wrapped,wrapped);
+  chain=run.catch(()=>{});
   return run;
 }
 
-export async function narrate({ model, ollamaUrl, settled, action, recent }) {
-  const system = `
+export async function narrate({model,ollamaUrl,settled,action,recent}){
+  const system=`
 你是開放世界文字 RPG 的小說敘事器，不是規則裁判。
 硬規則：
 - 所有 settled facts 都已由伺服器結算，你不可改寫。
@@ -20,31 +33,22 @@ export async function narrate({ model, ollamaUrl, settled, action, recent }) {
 - 文字以當前行動為中心，約 250~650 字。
 `.trim();
 
-  const payload = {
-    model,
-    stream: false,
-    messages: [
-      { role: "system", content: system },
-      {
-        role: "user",
-        content: JSON.stringify({
-          settled,
-          recent,
-          player_action: action
-        })
-      }
+  const payload={
+    model,stream:false,
+    messages:[
+      {role:"system",content:system},
+      {role:"user",content:JSON.stringify({settled,recent,player_action:action})}
     ],
-    options: { temperature: 0.78, num_predict: 1000 }
+    options:{temperature:0.78,num_predict:1000}
   };
 
-  const response = await fetch(`${ollamaUrl.replace(/\/$/, "")}/api/chat`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(120000)
+  const response=await fetch(`${ollamaUrl.replace(/\/$/,"")}/api/chat`,{
+    method:"POST",
+    headers:{"content-type":"application/json"},
+    body:JSON.stringify(payload),
+    signal:AbortSignal.timeout(120000)
   });
-
-  if (!response.ok) throw new Error(`Ollama HTTP ${response.status}`);
-  const data = await response.json();
-  return String(data?.message?.content || "").trim();
+  if(!response.ok)throw new Error(`Ollama HTTP ${response.status}`);
+  const data=await response.json();
+  return String(data?.message?.content||"").trim();
 }
