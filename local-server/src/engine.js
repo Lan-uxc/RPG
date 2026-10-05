@@ -5,6 +5,7 @@ import { tradeOps } from "./transactions.js";
 import { resolveCombat } from "./combat-engine.js";
 import { resolveEnemyCombat } from "./enemy-engine.js";
 import { loadScenario } from "./scenario-loader.js";
+import { lootForDefeat, useConsumable } from "./loot-engine.js";
 
 function addMinutes(hhmm,minutes){
   const [h,m]=hhmm.split(":").map(Number);
@@ -110,9 +111,22 @@ export function settleAction(run,action){
   facts.push(...trade.facts);
   if(trade.outcome)outcome=trade.outcome;
 
+  const consumable=useConsumable(run,input);
+  if(consumable.used){
+    Object.assign(next,consumable.state);
+    inventoryOps.push(...consumable.ops);
+    facts.push(consumable.fact);
+    outcome="consumable_used";
+  }
+
   const enemyResult=resolveEnemyCombat(run,intent,input);
   enemyOps.push(...enemyResult.enemyOps);
   facts.push(...enemyResult.facts);
+  if(enemyResult.target && !enemyResult.target.alive){
+    const loot=lootForDefeat(run,enemyResult.target);
+    inventoryOps.push(...loot);
+    if(loot.length)facts.push("你取得了可撤離的戰利品");
+  }
 
   const combat=resolveCombat(run,intent,input);
   if(combat && enemyResult.target){
