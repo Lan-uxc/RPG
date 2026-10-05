@@ -19,16 +19,30 @@ textarea{width:100%;min-height:58px;max-height:130px;resize:vertical;border:1px 
 .hist,.row{padding:9px 0;border-bottom:1px solid var(--line);font-size:11px}.row small,.hist{color:var(--muted)}.card{border:1px solid var(--line);border-radius:9px;padding:12px;margin:12px 0;background:var(--panel)}.card h2{font-size:13px;margin:0 0 9px}.badge{font-size:9px;padding:3px 6px;border:1px solid var(--line);border-radius:999px;margin-left:6px}.done{color:var(--ok)}.dead{color:var(--bad)}
 .nav{position:fixed;bottom:0;left:0;right:0;height:58px;background:#080808;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);z-index:10}.nav button{border:0;background:transparent;color:#777}.nav button.on{color:#eee}.loading{opacity:.55;pointer-events:none}
 @media(max-width:560px){.suggest{grid-template-columns:1fr}.story{font-size:16px;line-height:2.05}.app{padding-left:11px;padding-right:11px}}
+
+.terminal-home{position:fixed;inset:0;z-index:50;background:#e9e8e2;color:#111;overflow:auto;padding:18px 14px;font-family:"PingFang TC","Microsoft JhengHei",sans-serif}
+.terminal-shell{width:min(500px,100%);min-height:calc(100vh - 36px);margin:auto;border:1.5px solid #111;border-radius:28px;padding:20px;background:#f5f4ef;box-shadow:0 10px 35px #0002}
+.terminal-brand{display:flex;justify-content:space-between;align-items:start;border-bottom:1px solid #ccc;padding-bottom:12px}.terminal-brand b{font-size:23px}.terminal-brand small{display:block;letter-spacing:4px;font-size:8px;color:#777;margin:4px 0 0 39px}.help{width:38px;height:38px;border:1px solid;border-radius:50%;background:transparent;font-size:18px}
+.terminal-online{font:10px monospace;letter-spacing:2px;padding:12px 2px}.terminal-online span{float:right;color:#777}
+.status-board{border:1.5px solid #111;border-radius:18px;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:13px}.status-board small{display:block;font-size:9px;letter-spacing:2px;color:#777}.status-board strong{font:800 34px monospace}.meter i{display:block;height:6px;background:#ccc;border-radius:6px;margin-top:7px;overflow:hidden}.meter em{display:block;height:100%;background:#111}
+.stage-entry{width:100%;margin:18px 0;border:0;border-radius:20px;background:#111;color:#fff;text-align:left;padding:16px 22px}.stage-entry small,.stage-entry span{display:block;font-size:8px;letter-spacing:2px}.stage-entry b{display:block;font-size:29px;margin:8px 0 2px}.home-section h3{font-size:15px;margin:18px 0 10px;border-bottom:1px solid #bbb;padding-bottom:6px}.home-section h3 span{font:9px monospace;letter-spacing:2px;color:#999}.home-grid{display:grid;gap:9px}.home-grid.three{grid-template-columns:repeat(3,1fr)}.home-grid.two{grid-template-columns:repeat(2,1fr)}.home-grid button{min-height:92px;border:1.2px solid #111;border-radius:14px;background:transparent;text-align:left;padding:13px;font-size:19px}.home-grid b,.home-grid small{display:block}.home-grid b{font-size:16px;margin-top:9px}.home-grid small{font:8px monospace;letter-spacing:1.5px;color:#777;margin-top:3px}
+.home-drawer{display:none;margin-top:16px;border-top:1px solid #aaa;padding-top:10px}.home-drawer.on{display:block}.terminal-home .card,.terminal-home .row{background:transparent;color:#111;border-color:#bbb}.terminal-home .sbtn,.terminal-home .tool{background:transparent;color:#111;border-color:#111}.terminal-shell footer{text-align:center;font:8px monospace;letter-spacing:3px;color:#999;border-top:1px solid #ccc;margin-top:20px;padding-top:14px}
+.city-tabs{display:flex;gap:5px;overflow:auto;margin:8px 0}.city-tabs span{white-space:nowrap;border:1px solid #aaa;border-radius:999px;padding:5px 8px;font-size:9px}.city-title{font-size:19px;margin:12px 0 4px}.city-row{padding:10px 0;border-bottom:1px solid #ccc;font-size:11px}.wanted{font-weight:700}
+@media(prefers-color-scheme:dark){.terminal-home{background:#080808;color:#eee}.terminal-shell{background:#111;border-color:#555}.terminal-brand{border-color:#333}.status-board,.home-grid button{border-color:#555}.status-board small,.home-grid small{color:#888}.meter i{background:#333}.meter em{background:#eee}.stage-entry{background:#f2f1ec;color:#111}.home-section h3,.home-drawer,.terminal-shell footer,.city-row{border-color:#333}.terminal-home .row,.terminal-home .card{color:#eee;border-color:#333}.terminal-home .sbtn,.terminal-home .tool{color:#eee;border-color:#555}}
 </style>
 </head>
 <body>
-<div id="startScreen" style="position:fixed;inset:0;z-index:50;background:#000;display:flex;align-items:center;justify-content:center;padding:18px">
-  <div style="width:min(520px,94vw);border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:18px">
-    <div style="font-size:18px;font-weight:700;margin-bottom:8px">無限試煉空間</div>
-    <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:14px">選擇一個副本開始。畫面只有文字與狀態，不使用圖片素材。</div>
-    <div id="hubProfile" class="row">讀取主神空間資料…</div>
-    <div class="card"><h2>主神兌換</h2><div id="hubShop">讀取中…</div></div>
-    <div class="card"><h2>進入副本</h2><div id="scenarioList"><div class="row">讀取副本中…</div></div></div>
+<div id="startScreen" class="terminal-home">
+  <div class="terminal-shell">
+    <div class="terminal-brand"><div><b>◇　主神空間</b><small>GOD'S DOMAIN TERMINAL</small></div><button class="help">?</button></div>
+    <div class="terminal-online">● 主神在線　·　ONLINE <span>輪迴者 TERMINAL</span></div>
+    <div class="status-board"><div><small>獎勵點數　POINTS</small><strong id="homePoints">—</strong></div><div><small>完成副本　STAGES</small><strong id="homeStages">—</strong></div><div class="meter"><small>生命值 HP</small><i><em style="width:100%"></em></i></div><div class="meter"><small>狀態　STATUS</small><i><em style="width:72%"></em></i></div></div>
+    <button class="stage-entry" id="showStages"><small>核心行動　PRIMARY</small><b>進入副本　→</b><span>STAGE ENTRY · 隨機輪迴世界</span></button>
+    <section class="home-section"><h3>準備 <span>PREPARE</span></h3><div class="home-grid three"><button data-home="identity">♙<b>身份資訊</b><small>IDENTITY</small></button><button data-home="combat">♢<b>戰力</b><small>COMBAT</small></button><button data-home="bag">▢<b>背包</b><small>INVENTORY</small></button></div></section>
+    <section class="home-section"><h3>世界 <span>DOMAIN</span></h3><div class="home-grid two"><button id="cityBtn">◎<b>主神城</b><small>VIRTUAL CITY</small></button><button data-home="history">◷<b>副本歷史</b><small>STAGE LOG</small></button></div></section>
+    <section class="home-section"><h3>系統 <span>SYSTEM</span></h3><div class="home-grid three"><button data-home="rules">▤<b>主神規則</b><small>PROTOCOL</small></button><button id="exchangeBtn">⇄<b>兌換系統</b><small>EXCHANGE</small></button><button data-home="medical">⊕<b>治療系統</b><small>MEDICAL</small></button></div></section>
+    <div id="homeDrawer" class="home-drawer"><div id="hubProfile">讀取主神空間資料…</div><div id="hubShop"></div><div id="scenarioList"></div><div id="cityPanel"></div></div>
+    <footer>MADE FOR　GOD'S DOMAIN</footer>
   </div>
 </div>
 <div class="app">
@@ -110,6 +124,7 @@ async function loadScenarios(){
 }
 function renderHub(hub){
   hubData=hub;
+  q("homePoints").textContent=Number(hub.profile?.reward_points||0).toLocaleString();q("homeStages").textContent=Number(hub.profile?.completed_runs||0);
   const p=hub.profile||{};
   const owned=new Set((p.upgrades||[]).map(x=>x.key));
   q("hubProfile").innerHTML='<b>主神空間</b><br><small>獎勵點：'+e(p.reward_points||0)+'　完成副本：'+e(p.completed_runs||0)+'</small>'+
@@ -138,6 +153,24 @@ async function buyUpgrade(itemKey){
   const hub=await fetch("/api/hub").then(x=>x.json());
   renderHub(hub);
 }
+function openDrawer(){q("homeDrawer").classList.add("on");}
+async function showCity(){
+ openDrawer(); q("hubShop").innerHTML="";q("scenarioList").innerHTML="";
+ const r=await fetch("/api/city");const j=await r.json();if(!r.ok){q("cityPanel").textContent=j.error||"城市資料讀取失敗";return}
+ const w=await fetch("/api/city/wanted").then(x=>x.ok?x.json():({self:{status:"clear",bounty:0},wanted:[]}));
+ q("cityPanel").innerHTML='<div class="city-title">主神城 <small>GOD CITY</small></div><div class="city-tabs">'+(j.districts||[]).map(x=>'<span>'+e(x)+'</span>').join("")+'</div>'+
+ '<div class="city-row"><b>你的城市狀態</b><br>通緝：<span class="wanted">'+e(w.self?.status||"clear")+'</span>　賞金 '+e(w.self?.bounty||0)+'</div>'+
+ '<div class="city-row"><b>不動產</b><br>'+((j.properties||[]).map(x=>e(x.district)+"・"+e(x.name)+"　"+(x.owner_id?"已持有":e(x.price)+" 點")).join("<br>")||"目前沒有物業")+'</div>'+
+ '<div class="city-row"><b>玩家商店</b><br>'+((j.businesses||[]).map(x=>e(x.name)+"・"+e(x.kind)).join("<br>")||"尚無營業店舖")+'</div>'+
+ '<div class="city-row"><b>交易市場</b><br>'+((j.listings||[]).map(x=>e(x.name)+" × "+e(x.quantity)+"　"+e(x.unit_price)+" 點").join("<br>")||"目前沒有掛單")+'</div>'+
+ '<div class="city-row"><b>情報館</b><br>'+((j.intel||[]).map(x=>e(x.title)+"　"+e(x.price)+" 點").join("<br>")||"目前沒有公開情報")+'</div>'+
+ '<div class="city-row"><b>通緝榜</b><br>'+((w.wanted||[]).map(x=>e(x.player_id)+"　賞金 "+e(x.bounty)).join("<br>")||"目前無公開通緝")+'</div>'+
+ '<div class="city-row"><b>競技場</b><br>合法競技預設不致死；賭注與特殊條款需雙方同意。生死戰必須在契約中明確寫入。</div>';
+}
+q("showStages").onclick=()=>{openDrawer();q("hubShop").innerHTML="";q("cityPanel").innerHTML=""};
+q("exchangeBtn").onclick=()=>{openDrawer();q("scenarioList").innerHTML="";q("cityPanel").innerHTML="";renderHub(hubData||{profile:{},shop:[]})};
+q("cityBtn").onclick=showCity;
+document.querySelectorAll("[data-home]").forEach(b=>b.onclick=()=>{openDrawer();q("scenarioList").innerHTML="";q("hubShop").innerHTML="";q("cityPanel").innerHTML='<div class="city-row"><b>'+e(b.querySelector("b")?.textContent||"系統")+'</b><br>此模組將沿用主神空間規則與永久角色資料。</div>'});
 async function startScenario(scenarioId){
   const gear=(hubData?.profile?.upgrades||[]).filter(x=>x.type==="equipment");
   let loadout=[];
