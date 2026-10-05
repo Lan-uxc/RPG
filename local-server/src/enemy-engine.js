@@ -1,3 +1,4 @@
+import { detectionState } from "./stealth-engine.js";
 export function seedScenarioEnemies(run, scenario) {
   return (scenario.enemies||[]).map(e=>({
     key:e.key,
@@ -59,9 +60,11 @@ export function autonomousEnemyTick(run,scenario){
     if(!enemy.alive)continue;
     let e={...enemy,state:{...enemy.state}};
     if(e.location===run.location){
-      const dark=(scenario.objects||[]).some(o=>o.type==="light"&&o.location===run.location&&!({...o.initial,...run.state?.objectStates?.[o.key]}).on);
-      e.state.mode=dark?"searching":"engaged";e.state.lastKnownPlayer=run.location;
-      facts.push(dark?e.name+"在黑暗中搜索你的蹤跡":e.name+"已鎖定你的所在位置");
+      const detection=detectionState(run,scenario,e);
+      e.state.detection=detection;
+      if(detection==="detected"){e.state.mode="engaged";e.state.lastKnownPlayer=run.location;facts.push(e.name+"已發現你的確切位置");}
+      else if(detection==="suspicious"){e.state.mode="searching";facts.push(e.name+"似乎察覺附近有異常，開始搜索");}
+      else {e.state.mode="unaware";facts.push(e.name+"尚未察覺你的所在位置");}
       ops.push(e);continue;
     }
     if(Number(run.state?.noise||0)>=30){
