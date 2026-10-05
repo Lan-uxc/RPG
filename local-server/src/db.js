@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
+import { loadScenario } from "./scenario-loader.js";
 
 const dataDir=path.resolve("data");
 fs.mkdirSync(dataDir,{recursive:true});
@@ -86,17 +87,35 @@ export function getRun(runId){
   if(!row)return null;
   return {...row,state:JSON.parse(row.state_json),inventory:getInventory(runId),npcs:getNpcs(runId),threads:getThreads(runId)};
 }
-export function createRun({id,playerId}){
-  const initialState={hp:100,san:100,reward:0,facts:["雨剛停","老市場屋頂曾出現短暫的暗色紋路"],flags:{},visited:["town_edge"]};
+export function createRun({id,playerId,scenarioId="town_origin"}){
+  const sc=loadScenario(scenarioId);
+  const initialState={
+    hp:sc.start.hp??100,
+    san:sc.start.san??100,
+    reward:sc.start.reward??0,
+    facts:[...(sc.facts||[])],
+    flags:{},
+    visited:[sc.start.location]
+  };
+
   const tx=db.transaction(()=>{
-    db.prepare(`INSERT INTO runs(id,player_id,scenario_id,state_json) VALUES (?,?,'town_origin',?)`).run(id,playerId,JSON.stringify(initialState));
+    db.prepare(`
+      INSERT INTO runs(id,player_id,scenario_id,world_time,location,state_json)
+      VALUES (?,?,?,?,?,?)
+    `).run(id,playerId,sc.id,sc.start.time||"08:10",sc.start.location,JSON.stringify(initialState));
+
     const inv=db.prepare("INSERT INTO inventory(run_id,item_key,name,quantity,meta_json) VALUES (?,?,?,?,?)");
-    inv.run(id,"phone","手機",1,"{}");
-    inv.run(id,"wallet","錢包",1,JSON.stringify({cash:1200}));
-    inv.run(id,"bag","隨身背包",1,"{}");
-    db.prepare(`INSERT INTO threads(run_id,thread_key,title,status,progress,state_json) VALUES (?,?,?,?,?,?)`)
-      .run(id,"market_anomaly","老市場屋頂的暗色紋路","active",0,"{}");
-  });tx();return getRun(id);
+    for(const item of sc.start.inventory||[]){
+      inv.run(id,item.key,item.name,item.quantity||1,JSON.stringify(item.meta||{}));
+    }
+
+    const th=db.prepare("INSERT INTO threads(run_id,thread_key,title,status,progress,state_json) VALUES (?,?,?,?,?,?)");
+    for(const t of sc.threads||[]){
+      th.run(id,t.key,t.title,t.status||"active",t.progress||0,JSON.stringify(t.state||{}));
+    }
+  });
+  tx();
+  return getRun(id);
 }
 export function saveTurn({run,action,settled,narrative}){
   const tx=db.transaction(()=>{
@@ -142,7 +161,9 @@ export function saveTurn({run,action,settled,narrative}){
 
     db.prepare(`INSERT INTO turns(run_id,turn_no,player_input,settled_json,narrative) VALUES (?,?,?,?,?)`)
       .run(run.id,settled.turn,action,JSON.stringify(settled),narrative);
-  });tx();return getRun(run.id);
+  });
+  tx();
+  return getRun(run.id);
 }
 export function getRecentTurns(runId,limit=8){
   return db.prepare(`SELECT turn_no,player_input,narrative,settled_json FROM turns WHERE run_id=? ORDER BY turn_no DESC LIMIT ?`)
