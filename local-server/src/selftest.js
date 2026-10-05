@@ -12,6 +12,7 @@ import { evaluateSettlement } from "./settlement.js";
 import { searchLoot, useConsumable } from "./loot-engine.js";
 import { searchContainer, discardLoot } from "./container-engine.js";
 import { interactEnvironment, movementBlockedByEnvironment, environmentEffects } from "./environment-engine.js";
+import { stealthAction, detectionState } from "./stealth-engine.js";
 
 function run(overrides={}) {
   return {
@@ -314,6 +315,24 @@ function run(overrides={}) {
   const dark=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,noise:0,objectStates:{warehouse_light:{on:false}}},enemies:[{key:"feral_dog",name:"野犬",alive:true,hp:45,location:"old_warehouse",state:{}}]});
   const tick=autonomousEnemyTick(dark,sc);
   assert.equal(tick.enemyOps[0].state.mode,"searching");
+}
+
+{
+  const sc=loadScenario("harbor_trial");
+  const base=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,noise:0,objectStates:{warehouse_light:{on:false},cargo_crate:{moved:true,cover:true}}}});
+  const stealth=stealthAction(base,sc,"我躲在木箱後面放輕動作");
+  const hidden={...base,state:{...base.state,...stealth.state}};
+  const enemy={key:"feral_dog",name:"野犬",alive:true,hp:45,location:"old_warehouse",state:{perception:4}};
+  assert.equal(detectionState(hidden,sc,enemy),"unaware");
+  const loud={...hidden,state:{...hidden.state,noise:40}};
+  assert.equal(detectionState(loud,sc,enemy),"suspicious");
+}
+
+{
+  const r=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,noise:0,objectStates:{warehouse_light:{on:false},cargo_crate:{moved:true,cover:true}}},enemies:[{key:"feral_dog",name:"野犬",alive:true,hp:45,location:"old_warehouse",state:{perception:4}}]});
+  const s=settleAction(r,"我躲在木箱後面");
+  assert.equal(s.state.stealth.active,true);
+  assert.equal(s.enemyOps[0].state.mode,"unaware");
 }
 
 console.log("engine selftest: OK");
