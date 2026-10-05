@@ -221,7 +221,52 @@
         "requiresItem": "phone",
         "weight": 1,
         "fact": "手機記錄到規律金屬碰撞聲及其來源方向"
+      },
+      {
+        "key": "warehouse_manifest",
+        "location": "old_warehouse",
+        "match": "文件|清單|貨單|紀錄|桌上",
+        "weight": 2,
+        "fact": "倉庫貨運清單顯示一批未登記貨物在封鎖前被臨時轉移"
+      },
+      {
+        "key": "camera_record",
+        "location": "harbor_gate",
+        "match": "監視器|監控|畫面|攝影機",
+        "weight": 2,
+        "fact": "監視畫面記錄到封鎖前有人從舊倉庫方向搬運不明箱件"
       }
     ]
-  }
+  },
+  "npcs": [
+    {
+      "key": "dock_guard",
+      "name": "港區警衛",
+      "alive": true,
+      "relation": 0,
+      "location": "harbor_gate",
+      "state": {
+        "goal": "避免更多人進入危險區",
+        "fear": "封鎖內的異常擴大",
+        "interests": [
+          "封鎖",
+          "夜間異常"
+        ],
+        "bottomLine": "不會主動帶陌生人進危險區",
+        "knowledge": [
+          "昨晚封鎖時間比原定勤務早很多",
+          "有人從舊倉庫方向急忙撤離"
+        ],
+        "evidence": [
+          {
+            "key": "guard_testimony",
+            "match": "封鎖|昨晚|倉庫|原因|看到|發生",
+            "weight": 1,
+            "fact": "警衛證實封鎖時間異常，且有人自舊倉庫方向撤離"
+          }
+        ],
+        "memories": []
+      }
+    }
+  ]
 }
