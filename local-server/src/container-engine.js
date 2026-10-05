@@ -2,7 +2,9 @@ export function searchContainer(run,scenario,input){
   if(!/搜|搜索|搜刮|翻找|打開|檢查/.test(input))return {handled:false,ops:[],state:null,facts:[]};
   const containers=(scenario.containers||[]).filter(x=>x.location===run.location);
   const flags=run.state?.containerStates||{};
-  const candidates=containers.filter(x=>!flags[x.key]?.looted && (!x.match||new RegExp(x.match).test(input)));\n  const score=x=>{const words=String(x.match||"").split("|").filter(w=>input.includes(w));return Math.max(0,...words.map(w=>w.length))+(input.includes(x.name)?100:0)};\n  const box=candidates.sort((a,b)=>score(b)-score(a))[0];
+  const candidates=containers.filter(x=>!flags[x.key]?.looted && (!x.match||new RegExp(x.match).test(input)));
+const score=x=>{const words=String(x.match||"").split("|").filter(w=>input.includes(w));return Math.max(0,...words.map(w=>w.length))+(input.includes(x.name)?100:0)};
+const box=candidates.sort((a,b)=>score(b)-score(a))[0];
   if(!box)return {handled:false,ops:[],state:null,facts:[]};
   const current=(run.inventory||[]).reduce((n,x)=>n+(x.meta?.loot?Number(x.meta?.slots||1)*x.quantity:0),0);
   const needed=(box.items||[]).reduce((n,x)=>n+Number(x.slots||1)*(x.quantity||1),0);
