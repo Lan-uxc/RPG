@@ -8,6 +8,8 @@ function applyInventory(items,ops){
       const old=m.get(op.key);
       if(old)old.quantity+=op.quantity||1;
       else m.set(op.key,{key:op.key,name:op.name,quantity:op.quantity||1,meta:op.meta||{}});
+    }else if(op.type==="cash"){
+      const wallet=m.get("wallet"); if(wallet){wallet.meta={...(wallet.meta||{}),cash:Math.max(0,Number(wallet.meta?.cash||0)+Number(op.delta||0))};}
     }else if(op.type==="remove"){
       const old=m.get(op.key); if(!old)continue;
       old.quantity=Math.max(0,old.quantity-(op.quantity||1)); if(!old.quantity)m.delete(op.key);
