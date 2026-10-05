@@ -98,5 +98,44 @@
   },
   "death": {
     "rewardPointLoss": 25
-  }
+  },
+  "containers": [
+    {
+      "key": "warehouse_medkit",
+      "name": "牆邊急救箱",
+      "location": "old_warehouse",
+      "match": "急救|箱|櫃|醫療",
+      "items": [
+        {
+          "key": "bandage",
+          "name": "簡易繃帶",
+          "quantity": 2,
+          "value": 15,
+          "slots": 1
+        }
+      ]
+    },
+    {
+      "key": "locker_03",
+      "name": "生鏽置物櫃",
+      "location": "old_warehouse",
+      "match": "置物櫃|櫃子|鐵櫃|搜",
+      "items": [
+        {
+          "key": "calming_tablet",
+          "name": "鎮定片",
+          "quantity": 1,
+          "value": 25,
+          "slots": 1
+        },
+        {
+          "key": "anomaly_fragment",
+          "name": "命痕碎片",
+          "quantity": 1,
+          "value": 120,
+          "slots": 2
+        }
+      ]
+    }
+  ]
 }
