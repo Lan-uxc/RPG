@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { settleAction, getWorldForScenario } from "./engine.js";
-import { parseAction } from "./action-parser.js";
+import { parseAction, splitActions } from "./action-parser.js";
+import { settleActionSequence } from "./action-sequence.js";
 import { tradeOps } from "./transactions.js";
 import { socialConsequence, autonomousNpcTick } from "./npc-engine.js";
 import { resolveCombat } from "./combat-engine.js";
@@ -232,6 +233,23 @@ function run(overrides={}) {
   const r=run({inventory:[...run().inventory,{key:"anomaly_fragment",name:"命痕碎片",quantity:1,meta:{loot:true,slots:2}}]});
   const d=discardLoot(r,"我丟棄命痕碎片");
   assert.equal(d.handled,true); assert.equal(d.ops[0].type,"remove");
+}
+
+{
+  const parts=splitActions("我走進舊倉庫，然後打開急救箱，接著用繃帶包紮，最後休息");
+  assert.deepEqual(parts,["我走進舊倉庫","打開急救箱","用繃帶包紮"]);
+}
+
+{
+  const r=run({scenario_id:"harbor_trial",location:"warehouse_lane",world_time:"21:40",
+    state:{...run().state,hp:50,maxHp:100,bagCapacity:6,containerStates:{},visited:["warehouse_lane"]},
+    enemies:[],threads:[{key:"harbor_lockdown",title:"x",status:"active",progress:0,state:{}}]});
+  const s=settleActionSequence(r,"我走進舊倉庫，然後打開急救箱，接著用繃帶包紮");
+  assert.equal(s.location,"old_warehouse");
+  assert.equal(s.subActions.length,3);
+  assert.equal(s.state.hp,68);
+  assert.ok(s.inventoryOps.some(x=>x.type==="add"&&x.key==="bandage"));
+  assert.ok(s.inventoryOps.some(x=>x.type==="remove"&&x.key==="bandage"));
 }
 
 console.log("engine selftest: OK");
