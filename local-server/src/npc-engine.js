@@ -1,8 +1,6 @@
 export const NPC_TEMPLATES = {
   market_keeper: {
-    key:"market_keeper",
-    name:"林伯",
-    location:"old_market",
+    key:"market_keeper",name:"林伯",location:"old_market",
     goal:"守住老市場生意與鄰里秩序",
     fear:"異常現象引來外人與麻煩",
     interests:["市場","附近居民","屋頂異常"],
@@ -11,9 +9,7 @@ export const NPC_TEMPLATES = {
     personality:"寡言、務實、對陌生人先觀察再信任"
   },
   station_clerk: {
-    key:"station_clerk",
-    name:"陳小姐",
-    location:"bus_station",
+    key:"station_clerk",name:"陳小姐",location:"bus_station",
     goal:"把班次與乘客服務做好",
     fear:"被捲入與工作無關的衝突",
     interests:["班次","旅客","鎮上的消息"],
@@ -31,14 +27,10 @@ export function ensureLocalNpcOps(run, location) {
     ops.push({
       key:npc.key,name:npc.name,alive:true,relation:0,
       state:{
-        location:npc.location,
-        goal:npc.goal,
-        fear:npc.fear,
-        interests:npc.interests,
-        bottomLine:npc.bottomLine,
-        knowledge:npc.knowledge,
-        personality:npc.personality,
-        memories:[]
+        location:npc.location,goal:npc.goal,fear:npc.fear,
+        interests:npc.interests,bottomLine:npc.bottomLine,
+        knowledge:npc.knowledge,personality:npc.personality,
+        memories:[],lastAutonomousAction:null
       }
     });
   }
@@ -57,4 +49,33 @@ export function socialConsequence(run, intent) {
     memories.push({kind:"player_social",tone:intent.socialTone});
     return {...n,relation,state:{...n.state,memories:memories.slice(-20)}};
   });
+}
+
+export function autonomousNpcTick(run, nextLocation, elapsedMinutes){
+  if(elapsedMinutes<5) return [];
+  const ops=[];
+  for(const n of run.npcs||[]){
+    if(!n.alive) continue;
+    const state={...(n.state||{})};
+    const memories=[...(state.memories||[])];
+    let note=null;
+
+    if(n.key==="market_keeper"){
+      if(state.location==="old_market" && (run.threads||[]).some(t=>t.key==="market_anomaly" && t.status==="active")){
+        note="林伯巡了一次市場後方，特別留意屋頂附近是否有人靠近";
+      }else{
+        note="林伯照常整理攤位與市場周邊";
+      }
+    }else if(n.key==="station_clerk"){
+      note="陳小姐更新了下一班往外地的班次資訊";
+    }
+
+    if(note){
+      memories.push({kind:"autonomous",turn:(run.turn||0)+1,note});
+      state.lastAutonomousAction=note;
+      state.memories=memories.slice(-20);
+      ops.push({...n,state});
+    }
+  }
+  return ops;
 }
