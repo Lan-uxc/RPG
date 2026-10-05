@@ -78,7 +78,8 @@
       "hp": 45,
       "location": "warehouse_lane",
       "state": {
-        "hostile": true
+        "hostile": true,
+        "perception": 4
       }
     }
   ],
