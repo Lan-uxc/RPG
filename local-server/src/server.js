@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensurePlayer, createRun, getRun, getRecentTurns, saveTurn } from "./db.js";
-import { settleAction, fallbackNarrative, WORLD } from "./engine.js";
+import { settleAction, fallbackNarrative, getWorldForScenario } from "./engine.js";
 import { enqueue, narrate } from "./ollama.js";
 
 const app=express();
@@ -21,7 +21,7 @@ app.use(express.static(path.resolve(__dirname,"../public")));
 
 const buckets=new Map();
 function allow(key){
-  const now=Date.now(), arr=(buckets.get(key)||[]).filter(t=>now-t<60000);
+  const now=Date.now(),arr=(buckets.get(key)||[]).filter(t=>now-t<60000);
   if(arr.length>=8)return false;
   arr.push(now);buckets.set(key,arr);return true;
 }
@@ -35,14 +35,26 @@ app.get("/api/health",async(_req,res)=>{
   res.json({ok:true,ollama,model:OLLAMA_MODEL||models[0]||null,models});
 });
 
-app.get("/api/world",(_req,res)=>res.json({places:WORLD}));
+app.get("/api/world",(req,res)=>{
+  const scenarioId=String(req.query.scenario||"town_origin");
+  try{
+    res.json({scenarioId,places:getWorldForScenario(scenarioId)});
+  }catch{
+    res.status(404).json({error:"scenario_not_found"});
+  }
+});
 
 app.post("/api/session",(req,res)=>{
   const playerId=String(req.body?.playerId||crypto.randomUUID()).slice(0,100);
+  const scenarioId=String(req.body?.scenarioId||"town_origin").slice(0,80);
   ensurePlayer(playerId);
-  const runId=crypto.randomUUID();
-  const run=createRun({id:runId,playerId});
-  res.json({playerId,run});
+  try{
+    const runId=crypto.randomUUID();
+    const run=createRun({id:runId,playerId,scenarioId});
+    res.json({playerId,run});
+  }catch{
+    res.status(400).json({error:"invalid_scenario"});
+  }
 });
 
 app.get("/api/run/:id",(req,res)=>{
@@ -68,7 +80,11 @@ app.post("/api/run/:id/action",async(req,res)=>{
   let narrative="",ai=false;
 
   const model=OLLAMA_MODEL||(await(async()=>{
-    try{const r=await fetch(`${OLLAMA_URL}/api/tags`);const j=await r.json();return j.models?.[0]?.name||""}catch{return""}
+    try{
+      const r=await fetch(`${OLLAMA_URL}/api/tags`);
+      const j=await r.json();
+      return j.models?.[0]?.name||"";
+    }catch{return""}
   })());
 
   if(model){
@@ -80,19 +96,21 @@ app.post("/api/run/:id/action",async(req,res)=>{
   if(!narrative)narrative=fallbackNarrative(settled,action);
 
   const updated=saveTurn({run,action,settled,narrative});
+  const world=getWorldForScenario(updated.scenario_id);
   res.json({
     ai,
     turn:updated.turn,
     time:updated.world_time,
     location:updated.location,
-    locationName:WORLD[updated.location]?.name||updated.location,
+    locationName:world[updated.location]?.name||updated.location,
     state:updated.state,
     inventory:updated.inventory,
     npcs:updated.npcs,
     threads:updated.threads,
     narrative,
     summary:settled.summary,
-    outcome:settled.outcome
+    outcome:settled.outcome,
+    parsedIntent:settled.parsedIntent
   });
 });
 
