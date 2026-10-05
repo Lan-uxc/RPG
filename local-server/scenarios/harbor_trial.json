@@ -265,8 +265,50 @@
             "fact": "警衛證實封鎖時間異常，且有人自舊倉庫方向撤離"
           }
         ],
-        "memories": []
+        "memories": [],
+        "schedule": [
+          {
+            "from": 0,
+            "to": 6,
+            "location": "harbor_gate",
+            "activity": "守住夜間封鎖線"
+          },
+          {
+            "from": 6,
+            "to": 18,
+            "location": "harbor_gate",
+            "activity": "核對出入紀錄"
+          },
+          {
+            "from": 18,
+            "to": 24,
+            "location": "harbor_gate",
+            "activity": "加強封鎖巡查"
+          }
+        ],
+        "reactToActiveThread": true,
+        "threadLocation": "harbor_gate"
       }
+    }
+  ],
+  "worldEvolution": [
+    {
+      "key": "lockdown_tightens",
+      "afterTurn": 4,
+      "thread": "harbor_lockdown",
+      "threadStatus": "active",
+      "progress": 1,
+      "place": "harbor_gate",
+      "fact": "港區封鎖在持續，入口管制比先前更嚴"
+    },
+    {
+      "key": "harbor_night_deepens",
+      "afterTurn": 8,
+      "thread": "harbor_lockdown",
+      "threadStatus": "active",
+      "progress": 2,
+      "place": "warehouse_lane",
+      "fact": "夜色加深後，倉庫區的正常人員活動明顯減少"
     }
   ]
 }
