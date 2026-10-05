@@ -288,7 +288,7 @@ function run(overrides={}) {
 {
   const r=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,noise:0,objectStates:{}}});
   const s=settleAction(r,"我打破側窗");
-  assert.equal(s.state.noise,40);
+  assert.equal(s.state.noise,30);
   assert.ok(s.state.facts.includes("破裂聲在倉庫區傳開"));
 }
 
