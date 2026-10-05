@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
-import { settleAction } from "./engine.js";
+import { settleAction, getWorldForScenario } from "./engine.js";
 import { parseAction } from "./action-parser.js";
 import { tradeOps } from "./transactions.js";
-import { socialConsequence } from "./npc-engine.js";
+import { socialConsequence, autonomousNpcTick } from "./npc-engine.js";
+import { resolveCombat } from "./combat-engine.js";
+import { loadScenario } from "./scenario-loader.js";
 
 function run(overrides={}) {
   return {
-    id:"test", turn:0, world_time:"08:10", location:"town_edge", status:"active",
+    id:"test",scenario_id:"town_origin",turn:0,world_time:"08:10",location:"town_edge",status:"active",
     state:{hp:100,san:100,reward:0,facts:[],flags:{},visited:["town_edge"]},
     inventory:[
       {key:"phone",name:"手機",quantity:1,meta:{}},
@@ -16,6 +18,12 @@ function run(overrides={}) {
     threads:[{key:"market_anomaly",title:"老市場屋頂的暗色紋路",status:"active",progress:0,state:{}}],
     ...overrides
   };
+}
+
+{
+  const sc=loadScenario("town_origin");
+  assert.equal(sc.start.location,"town_edge");
+  assert.equal(getWorldForScenario("town_origin").old_market.name,"老市場");
 }
 
 {
@@ -54,8 +62,7 @@ function run(overrides={}) {
 }
 
 {
-  const r=run();
-  const t=tradeOps(r,parseAction("我買一瓶礦泉水"));
+  const t=tradeOps(run(),parseAction("我買一瓶礦泉水"));
   assert.equal(t.outcome,"trade_complete");
   assert.equal(t.ops.find(x=>x.type==="cash").delta,-25);
   assert.equal(t.ops.find(x=>x.type==="add").key,"water");
@@ -64,14 +71,31 @@ function run(overrides={}) {
 {
   const r=run({
     location:"old_market",
-    npcs:[{
-      key:"market_keeper",name:"林伯",alive:true,relation:0,
-      state:{location:"old_market",memories:[]}
-    }]
+    npcs:[{key:"market_keeper",name:"林伯",alive:true,relation:0,state:{location:"old_market",memories:[]}}]
   });
   const ops=socialConsequence(r,parseAction("我客氣地問林伯屋頂的事情"));
   assert.equal(ops[0].relation,2);
   assert.equal(ops[0].state.memories.at(-1).tone,"friendly");
+}
+
+{
+  const c=resolveCombat(run(),parseAction("我硬闖過去直接攻擊"),"我硬闖過去直接攻擊");
+  assert.equal(c.outcome,"combat_costly");
+  assert.ok(c.hp<100);
+  assert.ok(c.san<100);
+}
+
+{
+  const r=run({
+    location:"old_market",
+    npcs:[{
+      key:"market_keeper",name:"林伯",alive:true,relation:0,
+      state:{location:"old_market",memories:[],goal:"守住市場"}
+    }]
+  });
+  const ops=autonomousNpcTick(r,"old_market",8);
+  assert.equal(ops.length,1);
+  assert.ok(ops[0].state.lastAutonomousAction);
 }
 
 console.log("engine selftest: OK");
