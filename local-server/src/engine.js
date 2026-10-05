@@ -3,7 +3,7 @@ import { ensureLocalNpcOps, socialConsequence, autonomousNpcTick } from "./npc-e
 import { discloseNpcInformation } from "./npc-disclosure.js";
 import { tradeOps } from "./transactions.js";
 import { resolveCombat } from "./combat-engine.js";
-import { resolveEnemyCombat } from "./enemy-engine.js";
+import { resolveEnemyCombat, autonomousEnemyTick } from "./enemy-engine.js";
 import { loadScenario } from "./scenario-loader.js";
 import { searchLoot, useConsumable } from "./loot-engine.js";
 import { searchContainer, discardLoot } from "./container-engine.js";
@@ -205,6 +205,14 @@ const armorReduction=equipment.reduce((n,x)=>n+Number(x.damageReduction||0),0);
   const npcMap=new Map();
   for(const op of npcOps)npcMap.set(op.key,op);
   npcOps=[...npcMap.values()];
+
+  const enemyBase=new Map((run.enemies||[]).map(e=>[e.key,e]));
+  for(const e of enemyOps)enemyBase.set(e.key,e);
+  const enemyTick=autonomousEnemyTick({...run,location,state:next,enemies:[...enemyBase.values()]},scenario);
+  for(const e of enemyTick.enemyOps)enemyBase.set(e.key,e);
+  enemyOps.splice(0,enemyOps.length,...[...enemyBase.values()].filter(e=>(run.enemies||[]).some(old=>old.key===e.key)));
+  facts.push(...enemyTick.facts);
+  next.noise=enemyTick.noise;
 
   next.facts=[...new Set(facts)].slice(-100);
 
