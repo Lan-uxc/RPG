@@ -19,6 +19,7 @@ import { evolveWorld, evolveNpcs } from "./world-evolution.js";
 import { db } from "./db.js";
 import { citySnapshot, buyProperty, openBusiness, befriend, challengePvp, respondPvp } from "./city-engine.js";
 import { createListing, buyListing, publishIntel, acquireIntel } from "./city-market.js";
+import { directAttack, wantedState } from "./city-law.js";
 
 function run(overrides={}) {
   return {
@@ -444,7 +445,10 @@ function run(overrides={}) {
   publishIntel(a,{title:"測試情報",body:"只有購買後才應取得內容",price:30}); const intel=citySnapshot(a); const intelId=db.prepare("SELECT id FROM city_intel WHERE seller_id=? ORDER BY created_at DESC").get(a).id;
   assert.equal(acquireIntel(b,intelId).intelDetail.body,"只有購買後才應取得內容");
   befriend(a,b); assert.equal(citySnapshot(a).relations[0].status,"friends");
-  challengePvp(a,b); const duel=citySnapshot(b).pvp.find(x=>x.challenger_id===a); respondPvp(b,duel.id,true); assert.equal(citySnapshot(a).pvp.find(x=>x.id===duel.id).status,"accepted");
+  challengePvp(a,b,{stake:50,lethal:false,rules:"倒地即止"}); const duel=citySnapshot(b).pvp.find(x=>x.challenger_id===a); assert.equal(duel.terms.lethal,false); assert.equal(duel.terms.stake,50); respondPvp(b,duel.id,true); assert.equal(citySnapshot(a).pvp.find(x=>x.id===duel.id).status,"accepted");
+  const assault=directAttack(a,{targetId:b,district:"交易街",lethal:false,witnessed:true,evidence:80}); assert.equal(assault.assault.status,"initiated"); assert.ok(wantedState(a).heat>0);
+  assert.throws(()=>directAttack(a,{targetId:b,district:"競技場",lethal:false}),/use_arena_rules/);
+  challengePvp(a,b,{stake:0,lethal:true,rules:"雙方同意生死戰"}); const deathMatch=citySnapshot(b).pvp.find(x=>x.challenger_id===a&&x.status==="pending"&&x.terms.lethal); assert.equal(deathMatch.terms.lethal,true);
 }
 
 console.log("engine selftest: OK");
