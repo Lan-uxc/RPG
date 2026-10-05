@@ -33,3 +33,45 @@ export function resolveEnemyCombat(run,intent,input){
     target:updated
   };
 }
+
+function nextStep(world,from,to){
+  if(from===to)return from;
+  const q=[[from,null]],seen=new Set([from]);
+  while(q.length){
+    const [node,first]=q.shift();
+    for(const n of Object.keys(world[node]?.routes||{})){
+      if(seen.has(n))continue;
+      const step=first||n;if(n===to)return step;seen.add(n);q.push([n,step]);
+    }
+  }
+  return null;
+}
+function blockedDoor(run,scenario,from,to){
+  return (scenario.objects||[]).some(o=>{
+    if(o.type!=="door"||!o.connects?.includes(from)||!o.connects?.includes(to))return false;
+    const s={...o.initial,...run.state?.objectStates?.[o.key]};
+    return s.barricaded||s.locked;
+  });
+}
+export function autonomousEnemyTick(run,scenario){
+  const ops=[],facts=[];let noise=Math.max(0,Number(run.state?.noise||0)-10);
+  for(const enemy of run.enemies||[]){
+    if(!enemy.alive)continue;
+    let e={...enemy,state:{...enemy.state}};
+    if(e.location===run.location){
+      const dark=(scenario.objects||[]).some(o=>o.type==="light"&&o.location===run.location&&!({...o.initial,...run.state?.objectStates?.[o.key]}).on);
+      e.state.mode=dark?"searching":"engaged";e.state.lastKnownPlayer=run.location;
+      facts.push(dark?e.name+"在黑暗中搜索你的蹤跡":e.name+"已鎖定你的所在位置");
+      ops.push(e);continue;
+    }
+    if(Number(run.state?.noise||0)>=30){
+      const step=nextStep(scenario.places,e.location,run.location);
+      if(step){
+        if(blockedDoor(run,scenario,e.location,step)){e.state.mode="delayed";e.state.blockedTurns=Number(e.state.blockedTurns||0)+1;facts.push(e.name+"被封堵的通路拖住");}
+        else {e.location=step;e.state.mode="investigating";e.state.lastHeard=run.location;facts.push(e.name+"正朝聲響方向移動");}
+        ops.push(e);
+      }
+    }
+  }
+  return {enemyOps:ops,facts,noise};
+}
