@@ -11,6 +11,7 @@ import { interactEnvironment, movementBlockedByEnvironment, environmentEffects }
 import { stealthAction, breakStealth } from "./stealth-engine.js";
 import { resolveThreatByAction } from "./threat-engine.js";
 import { investigateEvidence } from "./investigation-engine.js";
+import { evolveWorld, evolveNpcs } from "./world-evolution.js";
 
 function addMinutes(hhmm,minutes){
   const [h,m]=hhmm.split(":").map(Number);
@@ -193,6 +194,12 @@ const armorReduction=equipment.reduce((n,x)=>n+Number(x.damageReduction||0),0);
   const afterDisclosure={...run,npcs:mergeNpcs(afterSocial.npcs||[],disclosure.npcOps)};
   const autonomousOps=autonomousNpcTick(afterDisclosure,location,minutes);
   npcOps.push(...autonomousOps);
+
+  const npcBeforeEvolution={...run,npcs:mergeNpcs(afterDisclosure.npcs||[],npcOps),threads:mergeNpcs(run.threads||[],threadOps)};
+  npcOps.push(...evolveNpcs(npcBeforeEvolution,scenario,{elapsedMinutes:minutes,playerLocation:location}));
+  const evolved=evolveWorld({...run,state:next,threads:mergeNpcs(run.threads||[],threadOps)},scenario,{elapsedMinutes:minutes,location});
+  Object.assign(next,evolved.state);
+  threadOps.push(...evolved.threadOps);
 
   const npcMap=new Map();
   for(const op of npcOps)npcMap.set(op.key,op);
