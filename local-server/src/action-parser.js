@@ -15,7 +15,7 @@ export function parseAction(input) {
   if (/買|購買|賣|交易|付錢|付款/.test(text)) intent.type="trade";
   if (/問|詢問|聊天|交談|說服|威脅|拜託|請求/.test(text)) intent.type="social";
   if (/休息|等待|睡/.test(text)) intent.type="wait";
-  if (/攻擊|打|射擊|開槍|砍|戰鬥|制服/.test(text)) intent.type="combat";
+  if (/攻擊|打他|打敵|毆打|射擊|開槍|砍|戰鬥|制服/.test(text)) intent.type="combat";
 
   if (/台北/.test(text)) intent.destination="taipei_city";
   else if (/老市場|市場/.test(text)) intent.destination="old_market";
