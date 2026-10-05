@@ -71,6 +71,23 @@ export function settleAction(run,action){
     outcome="thread_resolved";
   }
 
+  const harborThread=run.threads.find(t=>t.key==="harbor_lockdown");
+  if(run.scenario_id==="harbor_trial" && intent.type==="investigate" && /封鎖|倉庫|聲音|痕跡|檢查|調查/.test(input)){
+    const nextProgress=Math.max(25,(harborThread?.progress||0)+35);
+    const canResolve=(location==="old_warehouse" || location==="seawall") && nextProgress>=70;
+    threadOps.push({
+      key:"harbor_lockdown",title:"港區封鎖原因",
+      status:canResolve?"resolved":"active",
+      progress:canResolve?100:nextProgress,
+      state:{
+        lastEvidence:location==="old_warehouse"?"舊倉庫內留下近期搬運與封鎖相關痕跡":"港區封鎖與夜間異常活動有直接關聯",
+        resolution:canResolve?"已取得足夠資訊理解封鎖原因":null
+      }
+    });
+    facts.push(canResolve?"玩家已釐清港區封鎖原因":"玩家取得一項與港區封鎖有關的新線索");
+    if(canResolve) outcome="thread_resolved";
+  }
+
   if(/工作|打工|賺錢|生意/.test(input)){
     if(!facts.includes("玩家開始主動尋找收入來源"))facts.push("玩家開始主動尋找收入來源");
     threadOps.push({key:"income_search",title:"尋找收入來源",status:"active",progress:20,state:{}});
