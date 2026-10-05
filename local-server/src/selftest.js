@@ -7,6 +7,7 @@ import { resolveCombat } from "./combat-engine.js";
 import { loadScenario, listScenarios } from "./scenario-loader.js";
 import { discloseNpcInformation } from "./npc-disclosure.js";
 import { resolveEnemyCombat } from "./enemy-engine.js";
+import { evaluateSettlement } from "./settlement.js";
 
 function run(overrides={}) {
   return {
@@ -121,6 +122,37 @@ function run(overrides={}) {
   const ops=autonomousNpcTick(r,"old_market",8);
   assert.equal(ops.length,1);
   assert.ok(ops[0].state.lastAutonomousAction);
+}
+
+{
+  const incomplete=run({
+    threads:[{key:"market_anomaly",title:"x",status:"active",progress:50,state:{}}],
+    enemies:[]
+  });
+  const s=evaluateSettlement(incomplete);
+  assert.equal(s.complete,false);
+}
+
+{
+  const complete=run({
+    threads:[{key:"market_anomaly",title:"x",status:"resolved",progress:100,state:{}}],
+    enemies:[]
+  });
+  const s=evaluateSettlement(complete);
+  assert.equal(s.complete,true);
+  assert.equal(s.reward,125);
+}
+
+{
+  const harbor={
+    ...run(),
+    scenario_id:"harbor_trial",
+    threads:[{key:"harbor_lockdown",title:"x",status:"resolved",progress:100,state:{}}],
+    enemies:[{key:"feral_dog",name:"受驚的野犬",alive:false,hp:0,location:"warehouse_lane",state:{}}]
+  };
+  const s=evaluateSettlement(harbor);
+  assert.equal(s.complete,true);
+  assert.equal(s.reward,190);
 }
 
 console.log("engine selftest: OK");
