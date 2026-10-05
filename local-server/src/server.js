@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   ensurePlayer, createRun, getRunForPlayer, getRecentTurns, saveTurn,
   createAuthSession, getAuthSession, deleteExpiredSessions,
-  getPlayerProfile, settleRunForPlayer
+  getPlayerProfile, settleRunForPlayer, purchaseUpgrade
 } from "./db.js";
 import { settleAction, fallbackNarrative, getWorldForScenario } from "./engine.js";
 import { enqueue, narrate, getQueueStatus } from "./ollama.js";
@@ -14,6 +14,7 @@ import { withRunLock } from "./run-lock.js";
 import { evaluateSettlement } from "./settlement.js";
 import { listScenarios } from "./scenario-loader.js";
 import { randomToken, hashToken, readCookie, sessionCookie } from "./session-auth.js";
+import { publicShopItems } from "./shop-catalog.js";
 
 const app=express();
 const PORT=Number(process.env.PORT||3000);
@@ -80,6 +81,22 @@ app.get("/api/me",requirePlayer,(req,res)=>res.json({playerId:req.playerId,profi
 
 app.get("/api/queue",requirePlayer,(_req,res)=>{
   res.json(getQueueStatus());
+});
+
+app.get("/api/hub",requirePlayer,(req,res)=>{
+  res.json({profile:getPlayerProfile(req.playerId),shop:publicShopItems()});
+});
+
+app.post("/api/hub/purchase",requirePlayer,(req,res)=>{
+  const itemKey=String(req.body?.itemKey||"").slice(0,80);
+  try{
+    const result=purchaseUpgrade(req.playerId,itemKey);
+    res.json(result);
+  }catch(err){
+    const status=["shop_item_not_found"].includes(err.message)?404:
+      ["insufficient_reward_points","upgrade_already_owned"].includes(err.message)?409:400;
+    res.status(status).json({error:err.message||"purchase_failed"});
+  }
 });
 
 app.get("/api/world",(req,res)=>{
