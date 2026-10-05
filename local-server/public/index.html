@@ -105,7 +105,7 @@ async function loadScenarios(){
   }
   const r=await fetch("/api/scenarios");
   const j=await r.json();
-  q("scenarioList").innerHTML=(j.scenarios||[]).map(x=>'<button class="sbtn" style="width:100%;margin:5px 0" data-scenario="'+e(x.id)+'"><b>'+e(x.name)+'</b><br><small>'+e(x.id)+'</small></button>').join("")||'<div class="row">沒有可用副本。</div>';
+  q("scenarioList").innerHTML=(j.scenarios||[]).map(x=>'<button class="sbtn" style="width:100%;margin:5px 0" '+(x.unlocked?'data-scenario="'+e(x.id)+'"':'disabled')+'><b>'+e(x.name)+'</b>　難度 '+e(x.difficulty||1)+'<br><small>'+(x.unlocked?e(x.id):'未解鎖・需完成 '+e(x.unlock?.completedRuns||0)+' 次副本')+'</small></button>').join("")||'<div class="row">沒有可用副本。</div>';
   q("scenarioList").querySelectorAll("[data-scenario]").forEach(b=>b.onclick=()=>startScenario(b.dataset.scenario));
 }
 function renderHub(hub){
@@ -134,7 +134,7 @@ async function startScenario(scenarioId){
   const gear=(hubData?.profile?.upgrades||[]).filter(x=>x.type==="equipment");
   let loadout=[];
   if(gear.length){
-    const names=gear.map((x,i)=>(i+1)+". "+x.key).join("\n");
+    const names=gear.map((x,i)=>(i+1)+". "+x.key+" ["+(x.state?.slot||"gear")+"]").join("\n");
     const raw=prompt("可攜帶最多 2 件永久裝備。輸入編號，例如 1,2；留空則不帶。\n\n"+names,"");
     if(raw!==null)loadout=[...new Set(raw.split(",").map(x=>gear[Number(x.trim())-1]?.key).filter(Boolean))].slice(0,2);
   }
@@ -187,7 +187,7 @@ q("settleBtn").onclick=async()=>{
   const r=await fetch("/api/run/"+s.runId+"/settle",{method:"POST"});
   const j=await r.json();
   if(!r.ok){q("current").textContent="目前還不能結算："+(j.error||"not_ready");return}
-  q("story").textContent=currentRun?.status==="failed"?"你從死亡後的空白中重新醒來。\n\n本次副本失敗，沒有通關獎勵；永久能力與主神裝備仍然保留。\n\n你已回到主神空間。":"副本結算完成。\n\n獲得獎勵點："+j.settlement.reward+"。\n\n你已回到主神空間。";
+  q("story").textContent=currentRun?.status==="failed"?"你從死亡後的空白中重新醒來。\n\n本次副本失敗，沒有通關獎勵；死亡懲罰："+e(j.penalty||0)+" 獎勵點。永久能力與主神裝備仍然保留。\n\n你已回到主神空間。":"副本結算完成。\n\n獲得獎勵點："+j.settlement.reward+"。\n\n你已回到主神空間。";
   q("current").textContent="副本已結算";
   localStorage.removeItem(K);s={};
   setTimeout(()=>location.reload(),900);
