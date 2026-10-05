@@ -5,21 +5,19 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>無限試煉空間</title>
 <style>
-:root{--bg:#000;--panel:#0b0b0b;--line:#2b2b2b;--text:#eee;--muted:#888;--signal:#c9b987}
+:root{--bg:#000;--panel:#0b0b0b;--line:#2b2b2b;--text:#eee;--muted:#888;--signal:#c9b987;--ok:#63b77b;--bad:#b85f59}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:"PingFang TC","Microsoft JhengHei",sans-serif}
 body{min-height:100vh}.app{max-width:860px;margin:auto;padding:0 14px 86px}.top{position:sticky;top:0;background:#000e;backdrop-filter:blur(8px);z-index:5;border-bottom:1px solid var(--line);padding:12px 0}
-.head{display:flex;justify-content:space-between;gap:10px}.name{font-size:14px;font-weight:700}.online{font-size:10px;color:var(--muted)}
-.meta{display:flex;gap:8px;margin-top:7px;flex-wrap:wrap;font-size:10px;color:var(--muted)}
-.scene{padding:22px 0 12px}.scene h1{font-size:19px;margin:0 0 7px}.scene p{font-size:11px;color:var(--muted);margin:0;line-height:1.65}
+.head{display:flex;justify-content:space-between;gap:10px}.name{font-size:14px;font-weight:700}.online{font-size:10px;color:var(--muted)}.meta{display:flex;gap:8px;margin-top:7px;flex-wrap:wrap;font-size:10px;color:var(--muted)}
+.panel{display:none}.panel.on{display:block}.scene{padding:22px 0 12px}.scene h1{font-size:19px;margin:0 0 7px}.scene p{font-size:11px;color:var(--muted);margin:0;line-height:1.65}
 .story{border-left:1px solid #333;padding:2px 0 2px 16px;white-space:pre-wrap;font-family:"Noto Serif TC","PMingLiU",serif;font-size:17px;line-height:2.15;min-height:320px}
 .current{margin-top:16px;border:1px solid #4c4430;background:#15130e;padding:10px 12px;border-radius:8px;font-size:11px;color:#d9c89a}
 .suggest{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}.sbtn,.tool{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:10px;text-align:left;font-size:11px;cursor:pointer}
 .composer{position:sticky;bottom:58px;background:linear-gradient(transparent,#000 18%);padding-top:22px}.input{display:grid;grid-template-columns:1fr 70px;gap:7px}
-textarea{width:100%;min-height:58px;max-height:130px;resize:vertical;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);padding:11px;font-size:16px}
-.go{border:0;border-radius:8px;background:#eee;color:#000;font-weight:800}.hint{font-size:9px;color:#666;margin-top:6px}
-.tools{display:flex;gap:7px;margin-top:12px}.drawer{display:none;border:1px solid var(--line);padding:10px;border-radius:8px;margin-top:8px}.drawer.on{display:block}.hist{padding:8px 0;border-bottom:1px solid var(--line);font-size:10px;color:var(--muted)}
-.nav{position:fixed;bottom:0;left:0;right:0;height:58px;background:#080808;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr)}
-.nav button{border:0;background:transparent;color:#777}.nav button.on{color:#eee}.loading{opacity:.55;pointer-events:none}
+textarea{width:100%;min-height:58px;max-height:130px;resize:vertical;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);padding:11px;font-size:16px}.go{border:0;border-radius:8px;background:#eee;color:#000;font-weight:800}
+.hint{font-size:9px;color:#666;margin-top:6px}.tools{display:flex;gap:7px;margin-top:12px}.drawer{display:none;border:1px solid var(--line);padding:10px;border-radius:8px;margin-top:8px}.drawer.on{display:block}
+.hist,.row{padding:9px 0;border-bottom:1px solid var(--line);font-size:11px}.row small,.hist{color:var(--muted)}.card{border:1px solid var(--line);border-radius:9px;padding:12px;margin:12px 0;background:var(--panel)}.card h2{font-size:13px;margin:0 0 9px}.badge{font-size:9px;padding:3px 6px;border:1px solid var(--line);border-radius:999px;margin-left:6px}.done{color:var(--ok)}.dead{color:var(--bad)}
+.nav{position:fixed;bottom:0;left:0;right:0;height:58px;background:#080808;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);z-index:10}.nav button{border:0;background:transparent;color:#777}.nav button.on{color:#eee}.loading{opacity:.55;pointer-events:none}
 @media(max-width:560px){.suggest{grid-template-columns:1fr}.story{font-size:16px;line-height:2.05}.app{padding-left:11px;padding-right:11px}}
 </style>
 </head>
@@ -27,7 +25,9 @@ textarea{width:100%;min-height:58px;max-height:130px;resize:vertical;border:1px 
 <div class="app">
 <header class="top"><div class="head"><div class="name">無限試煉空間</div><div class="online" id="health">檢查 AI…</div></div>
 <div class="meta"><span id="loc">地點：北台灣・邊緣城鎮</span><span id="time">時間：08:10</span><span id="turn">第 0 回合</span></div></header>
-<section class="scene"><h1 id="title">清晨，小鎮開始醒來</h1><p>你不需要照預設選項走。世界會接受合理的自由行動。</p></section>
+
+<main id="adventure" class="panel on">
+<section class="scene"><h1>清晨，小鎮開始醒來</h1><p>建議行動只是捷徑。合理的自由輸入永遠有效。</p></section>
 <section class="story" id="story">雨剛停。
 
 公車站牌下積著一層薄水。早餐店的鐵門拉到一半，巷子深處有人把空瓶搬上貨車。
@@ -39,36 +39,68 @@ textarea{width:100%;min-height:58px;max-height:130px;resize:vertical;border:1px 
 <div class="suggest">
 <button class="sbtn">我走進老市場，先看看剛才屋頂上的異常。</button>
 <button class="sbtn">我先不管異常，在鎮上找工作或可以賺錢的機會。</button>
-<button class="sbtn">我直接離開這個小鎮，沿主要道路往其他城市移動。</button>
+<button class="sbtn">我直接去公車站，搭車前往台北。</button>
 </div>
-<div class="composer"><div class="input"><textarea id="input" maxlength="1000" placeholder="直接輸入你想做的事"></textarea><button class="go" id="go">執行</button></div>
-<div class="hint">建議行動只是捷徑，自由輸入永遠有效。</div></div>
+<div class="composer"><div class="input"><textarea id="input" maxlength="1000" placeholder="直接輸入你想做的事"></textarea><button class="go" id="go">執行</button></div><div class="hint">系統只處理你這一回合的行動，不替你擅自決定下一步。</div></div>
 <div class="tools"><button class="tool" id="historyBtn">歷史行動</button><button class="tool" id="newBtn">重新開始</button></div>
 <div class="drawer" id="history"></div>
+</main>
+
+<main id="missions" class="panel"><div class="card"><h2>事件與任務</h2><div id="threads">尚無事件。</div></div></main>
+<main id="character" class="panel"><div class="card"><h2>角色狀態</h2><div id="characterState">HP 100 / SAN 100</div></div><div class="card"><h2>同行人物</h2><div id="npcs">目前沒有同行人物。</div></div></main>
+<main id="inventory" class="panel"><div class="card"><h2>行囊</h2><div id="items">讀取中…</div></div></main>
+<main id="archive" class="panel"><div class="card"><h2>世界紀錄</h2><div id="facts">讀取中…</div></div></main>
 </div>
-<nav class="nav"><button class="on">冒險</button><button>任務</button><button>角色</button><button>行囊</button><button>檔案</button></nav>
+
+<nav class="nav">
+<button class="on" data-panel="adventure">冒險</button>
+<button data-panel="missions">任務</button>
+<button data-panel="character">角色</button>
+<button data-panel="inventory">行囊</button>
+<button data-panel="archive">檔案</button>
+</nav>
+
 <script>
-const K="rpg-local-save-v1";let s=JSON.parse(localStorage.getItem(K)||"null")||{};
+const K="rpg-local-save-v2";let s=JSON.parse(localStorage.getItem(K)||"null")||{};let currentRun=null;
 const q=id=>document.getElementById(id);
+function e(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function placeName(key){const m={town_edge:"北台灣・邊緣城鎮",old_market:"老市場",bus_station:"公車站",riverside:"河堤道路",industrial_gate:"工業區入口",taipei_transit:"前往台北途中",taipei_city:"台北市區"};return m[key]||key}
 async function ensureSession(){
   if(s.runId){const r=await fetch("/api/run/"+s.runId);if(r.ok){const j=await r.json();render(j.run,j.recent);return}}
   const playerId=s.playerId||crypto.randomUUID();
   const r=await fetch("/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerId})});
   const j=await r.json();s={playerId:j.playerId,runId:j.run.id};localStorage.setItem(K,JSON.stringify(s));render(j.run,[]);
 }
-function render(run,recent=[]){q("loc").textContent="地點："+run.location;q("time").textContent="時間："+run.world_time;q("turn").textContent="第 "+run.turn+" 回合";
-if(run.turn>0&&recent.length)q("story").textContent=recent[recent.length-1].narrative;
-q("history").innerHTML=recent.slice().reverse().map(x=>'<div class="hist"><b>#'+x.turn_no+'</b> '+escapeHtml(x.player_input)+'</div>').join("")||'<div class="hist">尚無歷史。</div>'}
-function escapeHtml(v){return String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-async function act(action){action=String(action||"").trim();if(!action)return;q("current").textContent="本回合行動："+action;document.body.classList.add("loading");
-try{const r=await fetch("/api/run/"+s.runId+"/action",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action})});const j=await r.json();if(!r.ok)throw Error(j.error||"request_failed");
-q("story").textContent=j.narrative;q("loc").textContent="地點："+j.location;q("time").textContent="時間："+j.time;q("turn").textContent="第 "+j.turn+" 回合";
-const rr=await fetch("/api/run/"+s.runId);const jj=await rr.json();render(jj.run,jj.recent);q("current").textContent="本回合行動："+action;
-}catch(e){q("current").textContent="執行失敗："+e.message}finally{document.body.classList.remove("loading");q("input").value=""}}
-q("go").onclick=()=>act(q("input").value);q("input").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();act(q("input").value)}});
+function render(run,recent=[]){
+  currentRun=run;q("loc").textContent="地點："+placeName(run.location);q("time").textContent="時間："+run.world_time;q("turn").textContent="第 "+run.turn+" 回合";
+  if(run.turn>0&&recent.length)q("story").textContent=recent[recent.length-1].narrative;
+  q("history").innerHTML=recent.slice().reverse().map(x=>'<div class="hist"><b>#'+x.turn_no+'</b> '+e(x.player_input)+'</div>').join("")||'<div class="hist">尚無歷史。</div>';
+  q("threads").innerHTML=(run.threads||[]).map(x=>'<div class="row"><b>'+e(x.title)+'</b><span class="badge '+(x.status==="resolved"?"done":"")+'">'+e(x.status)+'</span><br><small>進度 '+e(x.progress)+'</small></div>').join("")||"尚無事件。";
+  q("items").innerHTML=(run.inventory||[]).map(x=>'<div class="row">'+e(x.name)+' × '+e(x.quantity)+(x.meta?.cash!=null?'　現金 '+e(x.meta.cash)+' 元':'')+'</div>').join("")||"空。";
+  q("npcs").innerHTML=(run.npcs||[]).map(x=>'<div class="row '+(!x.alive?"dead":"")+'">'+e(x.name)+'　'+(x.alive?"存活":"死亡")+'　關係 '+e(x.relation)+'</div>').join("")||"目前沒有同行人物。";
+  q("characterState").textContent="HP "+(run.state?.hp??100)+" / SAN "+(run.state?.san??100)+" / 獎勵點 "+(run.state?.reward??0);
+  q("facts").innerHTML=(run.state?.facts||[]).map(x=>'<div class="row">'+e(x)+'</div>').join("")||"尚無紀錄。";
+}
+async function refresh(){const r=await fetch("/api/run/"+s.runId);if(r.ok){const j=await r.json();render(j.run,j.recent)}}
+async function act(action){
+  action=String(action||"").trim();if(!action)return;
+  q("current").textContent="本回合行動："+action;document.body.classList.add("loading");
+  try{
+    const r=await fetch("/api/run/"+s.runId+"/action",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action})});
+    const j=await r.json();if(!r.ok)throw Error(j.error||"request_failed");
+    q("story").textContent=j.narrative;q("current").textContent="本回合行動："+action;await refresh();
+  }catch(err){q("current").textContent="執行失敗："+err.message}
+  finally{document.body.classList.remove("loading");q("input").value=""}
+}
+q("go").onclick=()=>act(q("input").value);
+q("input").addEventListener("keydown",x=>{if(x.key==="Enter"&&!x.shiftKey){x.preventDefault();act(q("input").value)}});
 document.querySelectorAll(".sbtn").forEach(b=>b.onclick=()=>act(b.textContent));
 q("historyBtn").onclick=()=>q("history").classList.toggle("on");
 q("newBtn").onclick=()=>{if(confirm("確定重新開始？")){localStorage.removeItem(K);location.reload()}};
+document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  document.querySelectorAll(".panel").forEach(x=>x.classList.remove("on"));q(b.dataset.panel).classList.add("on");
+});
 fetch("/api/health").then(r=>r.json()).then(j=>q("health").textContent=j.ollama?"AI 在線・"+j.model:"AI fallback 模式").catch(()=>q("health").textContent="伺服器連線異常");
 ensureSession();
 </script>
