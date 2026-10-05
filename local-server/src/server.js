@@ -8,7 +8,8 @@ import {
   createAuthSession, getAuthSession, deleteExpiredSessions,
   getPlayerProfile, settleRunForPlayer, purchaseUpgrade, returnFailedRunToHub, sellStashItem
 } from "./db.js";
-import { settleAction, fallbackNarrative, getWorldForScenario } from "./engine.js";
+import { fallbackNarrative, getWorldForScenario } from "./engine.js";
+import { settleActionSequence } from "./action-sequence.js";
 import { enqueue, narrate, getQueueStatus } from "./ollama.js";
 import { withRunLock } from "./run-lock.js";
 import { evaluateSettlement } from "./settlement.js";
@@ -148,7 +149,7 @@ app.post("/api/run/:id/action",requirePlayer,async(req,res)=>{
       if(!run)throw Object.assign(new Error("run_not_found"),{status:404});
       if(run.status!=="active")throw Object.assign(new Error("run_not_active"),{status:409});
 
-      const settled=settleAction(run,action);
+      const settled=settleActionSequence(run,action,3);
       const recent=getRecentTurns(run.id,6);
       let narrative="",ai=false;
 
