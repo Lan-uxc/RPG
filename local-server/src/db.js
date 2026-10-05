@@ -33,6 +33,14 @@ CREATE TABLE IF NOT EXISTS player_upgrades (
   acquired_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY(player_id, upgrade_key)
 );
+CREATE TABLE IF NOT EXISTS player_stash (
+  player_id TEXT NOT NULL REFERENCES players(id),
+  item_key TEXT NOT NULL,
+  name TEXT NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  meta_json TEXT NOT NULL DEFAULT '{}',
+  PRIMARY KEY(player_id,item_key)
+);
 CREATE TABLE IF NOT EXISTS auth_sessions (
   token_hash TEXT PRIMARY KEY,
   player_id TEXT NOT NULL REFERENCES players(id),
@@ -113,10 +121,13 @@ export function getPlayerUpgrades(playerId){
   return db.prepare("SELECT upgrade_key,type,level,state_json,acquired_at FROM player_upgrades WHERE player_id=? ORDER BY acquired_at").all(playerId)
     .map(x=>({key:x.upgrade_key,type:x.type,level:x.level,state:JSON.parse(x.state_json),acquiredAt:x.acquired_at}));
 }
+export function getPlayerStash(playerId){
+  return db.prepare("SELECT item_key,name,quantity,meta_json FROM player_stash WHERE player_id=? ORDER BY name").all(playerId).map(x=>({key:x.item_key,name:x.name,quantity:x.quantity,meta:JSON.parse(x.meta_json)}));
+}
 export function getPlayerProfile(playerId){
   const row=db.prepare("SELECT player_id,reward_points,hub_state_json,completed_runs FROM player_profiles WHERE player_id=?").get(playerId);
   if(!row)return null;
-  return {...row,hubState:JSON.parse(row.hub_state_json),upgrades:getPlayerUpgrades(playerId)};
+  return {...row,hubState:JSON.parse(row.hub_state_json),upgrades:getPlayerUpgrades(playerId),stash:getPlayerStash(playerId)};
 }
 export function purchaseUpgrade(playerId,itemKey){
   const item=getShopItem(itemKey);
@@ -261,6 +272,9 @@ export function settleRunForPlayer(runId,playerId,reward){
     const run=db.prepare("SELECT id,status,player_id FROM runs WHERE id=?").get(runId);
     if(!run || run.player_id!==playerId) throw new Error("run_not_found");
     if(run.status!=="active") throw new Error("run_already_settled");
+    const loot=getInventory(runId).filter(x=>x.meta?.extractable && !x.meta?.permanent);
+    const stash=db.prepare(`INSERT INTO player_stash(player_id,item_key,name,quantity,meta_json) VALUES (?,?,?,?,?) ON CONFLICT(player_id,item_key) DO UPDATE SET quantity=quantity+excluded.quantity,meta_json=excluded.meta_json`);
+    for(const item of loot)stash.run(playerId,item.key,item.name,item.quantity,JSON.stringify(item.meta||{}));
     db.prepare("UPDATE runs SET status='completed',updated_at=CURRENT_TIMESTAMP WHERE id=?").run(runId);
     db.prepare(`
       UPDATE player_profiles
@@ -271,6 +285,18 @@ export function settleRunForPlayer(runId,playerId,reward){
   });
   tx();
   return {run:getRun(runId),profile:getPlayerProfile(playerId)};
+}
+
+export function sellStashItem(playerId,itemKey,quantity=1){
+  const qty=Math.max(1,Math.floor(Number(quantity)||1));
+  const tx=db.transaction(()=>{
+    const row=db.prepare("SELECT quantity,meta_json FROM player_stash WHERE player_id=? AND item_key=?").get(playerId,itemKey);
+    if(!row||row.quantity<qty)throw new Error("stash_item_not_found");
+    const meta=JSON.parse(row.meta_json); const gain=Math.max(0,Number(meta.value||0))*qty;
+    db.prepare("UPDATE player_stash SET quantity=quantity-? WHERE player_id=? AND item_key=?").run(qty,playerId,itemKey);
+    db.prepare("DELETE FROM player_stash WHERE player_id=? AND item_key=? AND quantity<=0").run(playerId,itemKey);
+    db.prepare("UPDATE player_profiles SET reward_points=reward_points+?,updated_at=CURRENT_TIMESTAMP WHERE player_id=?").run(gain,playerId);
+  }); tx(); return getPlayerProfile(playerId);
 }
 
 export function saveTurn({run,action,settled,narrative}){
