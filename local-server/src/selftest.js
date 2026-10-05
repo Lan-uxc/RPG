@@ -11,6 +11,7 @@ import { resolveEnemyCombat } from "./enemy-engine.js";
 import { evaluateSettlement } from "./settlement.js";
 import { searchLoot, useConsumable } from "./loot-engine.js";
 import { searchContainer, discardLoot } from "./container-engine.js";
+import { interactEnvironment, movementBlockedByEnvironment } from "./environment-engine.js";
 
 function run(overrides={}) {
   return {
@@ -250,6 +251,27 @@ function run(overrides={}) {
   assert.equal(s.state.hp,68);
   assert.ok(s.inventoryOps.some(x=>x.type==="add"&&x.key==="bandage"));
   assert.ok(s.inventoryOps.some(x=>x.type==="remove"&&x.key==="bandage"));
+}
+
+{
+  const sc=loadScenario("harbor_trial");
+  const r=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,objectStates:{},visited:["old_warehouse"]}});
+  const shut=interactEnvironment(r,sc,"我關上鐵門");
+  assert.equal(shut.state.warehouse_door.open,false);
+  const locked=interactEnvironment({...r,state:{...r.state,objectStates:shut.state}},sc,"我鎖門");
+  assert.equal(locked.state.warehouse_door.locked,true);
+  const outside={...r,location:"warehouse_lane",state:{...r.state,objectStates:locked.state}};
+  assert.equal(movementBlockedByEnvironment(outside,sc,"old_warehouse"),"舊倉庫鐵門");
+  const s=settleAction(outside,"我走進舊倉庫");
+  assert.equal(s.location,"warehouse_lane"); assert.equal(s.outcome,"blocked");
+}
+
+{
+  const sc=loadScenario("harbor_trial");
+  const r=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,objectStates:{}}});
+  assert.equal(interactEnvironment(r,sc,"我打破側窗").state.warehouse_window.broken,true);
+  assert.equal(interactEnvironment(r,sc,"我開燈").state.warehouse_light.on,true);
+  assert.equal(interactEnvironment(r,sc,"我搬木箱堵住入口").state.cargo_crate.cover,true);
 }
 
 console.log("engine selftest: OK");
