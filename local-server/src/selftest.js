@@ -11,7 +11,7 @@ import { resolveEnemyCombat } from "./enemy-engine.js";
 import { evaluateSettlement } from "./settlement.js";
 import { searchLoot, useConsumable } from "./loot-engine.js";
 import { searchContainer, discardLoot } from "./container-engine.js";
-import { interactEnvironment, movementBlockedByEnvironment } from "./environment-engine.js";
+import { interactEnvironment, movementBlockedByEnvironment, environmentEffects } from "./environment-engine.js";
 
 function run(overrides={}) {
   return {
@@ -272,6 +272,24 @@ function run(overrides={}) {
   assert.equal(interactEnvironment(r,sc,"我打破側窗").state.warehouse_window.broken,true);
   assert.equal(interactEnvironment(r,sc,"我開燈").state.warehouse_light.on,true);
   assert.equal(interactEnvironment(r,sc,"我搬木箱堵住入口").state.cargo_crate.cover,true);
+}
+
+{
+  const sc=loadScenario("harbor_trial");
+  const base=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,hp:100,objectStates:{cargo_crate:{moved:true,cover:true},warehouse_light:{on:false}}},enemies:[{key:"raider",name:"測試敵人",alive:true,hp:100,location:"old_warehouse",state:{}}]});
+  assert.equal(environmentEffects(base,sc).coverReduction,6);
+  assert.equal(environmentEffects(base,sc).dark,true);
+  const fight=settleAction(base,"我攻擊測試敵人");
+  assert.ok(fight.state.hp>=95);
+  const inspect=settleAction({...base,enemies:[]},"我調查地上的痕跡");
+  assert.ok(inspect.state.facts.includes("黑暗限制了你能確認的細節"));
+}
+
+{
+  const r=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,noise:0,objectStates:{}}});
+  const s=settleAction(r,"我打破側窗");
+  assert.equal(s.state.noise,40);
+  assert.ok(s.state.facts.includes("破裂聲在倉庫區傳開"));
 }
 
 console.log("engine selftest: OK");
