@@ -102,15 +102,27 @@ export function settleAction(run,action){
     outcome="blocked";
   }
 
-  npcOps.push(...ensureLocalNpcOps(run,location));
-  npcOps.push(...socialConsequence(run,intent));
+  const spawned=ensureLocalNpcOps(run,location);
+  npcOps.push(...spawned);
 
-  const disclosure=discloseNpcInformation(run,intent,input);
+  const mergeNpcs=(base,ops)=>{
+    const m=new Map(base.map(n=>[n.key,n]));
+    for(const op of ops)m.set(op.key,op);
+    return [...m.values()];
+  };
+
+  const socialOps=socialConsequence(run,intent);
+  npcOps.push(...socialOps);
+  const afterSocial={...run,npcs:mergeNpcs(run.npcs||[],socialOps)};
+
+  const disclosure=discloseNpcInformation(afterSocial,intent,input);
   npcOps.push(...disclosure.npcOps);
   facts.push(...disclosure.facts);
   if(disclosure.disclosed.length) outcome="information_gained";
 
-  npcOps.push(...autonomousNpcTick(run,location,minutes));
+  const afterDisclosure={...run,npcs:mergeNpcs(afterSocial.npcs||[],disclosure.npcOps)};
+  const autonomousOps=autonomousNpcTick(afterDisclosure,location,minutes);
+  npcOps.push(...autonomousOps);
 
   const npcMap=new Map();
   for(const op of npcOps)npcMap.set(op.key,op);
