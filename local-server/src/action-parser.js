@@ -1,0 +1,34 @@
+export function parseAction(input) {
+  const text=String(input||"").trim();
+  const intent={
+    raw:text,
+    type:"other",
+    target:null,
+    destination:null,
+    item:null,
+    socialTone:"neutral",
+    risk:"normal"
+  };
+
+  if (/前往|去|到|離開|搭|開車|騎車|走到|移動/.test(text)) intent.type="move";
+  if (/觀察|查看|調查|搜尋|檢查|翻找|研究/.test(text)) intent.type="investigate";
+  if (/買|購買|賣|交易|付錢|付款/.test(text)) intent.type="trade";
+  if (/問|詢問|聊天|交談|說服|威脅|拜託|請求/.test(text)) intent.type="social";
+  if (/休息|等待|睡/.test(text)) intent.type="wait";
+  if (/攻擊|打|射擊|開槍|砍|戰鬥|制服/.test(text)) intent.type="combat";
+
+  if (/台北/.test(text)) intent.destination="taipei_city";
+  else if (/老市場|市場/.test(text)) intent.destination="old_market";
+  else if (/公車站|車站/.test(text)) intent.destination="bus_station";
+  else if (/河堤/.test(text)) intent.destination="riverside";
+  else if (/工業區/.test(text)) intent.destination="industrial_gate";
+
+  if (/礦泉水|水/.test(text)) intent.item="water";
+  if (/早餐|三明治/.test(text)) intent.item="breakfast";
+
+  if (/威脅|恐嚇|逼/.test(text)) intent.socialTone="hostile";
+  else if (/拜託|請求|客氣|禮貌/.test(text)) intent.socialTone="friendly";
+
+  if (/偷偷|潛行|冒險|硬闖|強行/.test(text)) intent.risk="high";
+  return intent;
+}
