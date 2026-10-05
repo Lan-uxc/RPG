@@ -77,7 +77,7 @@ function render(run,recent=[]){
   q("history").innerHTML=recent.slice().reverse().map(x=>'<div class="hist"><b>#'+x.turn_no+'</b> '+e(x.player_input)+'</div>').join("")||'<div class="hist">尚無歷史。</div>';
   q("threads").innerHTML=(run.threads||[]).map(x=>'<div class="row"><b>'+e(x.title)+'</b><span class="badge '+(x.status==="resolved"?"done":"")+'">'+e(x.status)+'</span><br><small>進度 '+e(x.progress)+'</small></div>').join("")||"尚無事件。";
   q("items").innerHTML=(run.inventory||[]).map(x=>'<div class="row">'+e(x.name)+' × '+e(x.quantity)+(x.meta?.cash!=null?'　現金 '+e(x.meta.cash)+' 元':'')+'</div>').join("")||"空。";
-  q("npcs").innerHTML=(run.npcs||[]).map(x=>'<div class="row '+(!x.alive?"dead":"")+'">'+e(x.name)+'　'+(x.alive?"存活":"死亡")+'　關係 '+e(x.relation)+'</div>').join("")||"目前沒有同行人物。";
+  q("npcs").innerHTML=(run.npcs||[]).map(x=>'<div class="row '+(!x.alive?"dead":"")+'"><b>'+e(x.name)+'</b>　'+(x.alive?"存活":"死亡")+'　關係 '+e(x.relation)+(x.state?.lastAutonomousAction?'<br><small>最近行動：'+e(x.state.lastAutonomousAction)+'</small>':'')+'</div>').join("")||"目前沒有同行人物。";
   q("characterState").textContent="HP "+(run.state?.hp??100)+" / SAN "+(run.state?.san??100)+" / 獎勵點 "+(run.state?.reward??0);
   q("facts").innerHTML=(run.state?.facts||[]).map(x=>'<div class="row">'+e(x)+'</div>').join("")||"尚無紀錄。";
 }
