@@ -16,6 +16,14 @@ CREATE TABLE IF NOT EXISTS players (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  token_hash TEXT PRIMARY KEY,
+  player_id TEXT NOT NULL REFERENCES players(id),
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_player ON auth_sessions(player_id);
+
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY,
   player_id TEXT NOT NULL REFERENCES players(id),
@@ -56,6 +64,16 @@ CREATE TABLE IF NOT EXISTS npcs (
   state_json TEXT NOT NULL DEFAULT '{}',
   PRIMARY KEY(run_id, npc_key)
 );
+CREATE TABLE IF NOT EXISTS enemies (
+  run_id TEXT NOT NULL REFERENCES runs(id),
+  enemy_key TEXT NOT NULL,
+  name TEXT NOT NULL,
+  alive INTEGER NOT NULL DEFAULT 1,
+  hp INTEGER NOT NULL DEFAULT 100,
+  location TEXT NOT NULL,
+  state_json TEXT NOT NULL DEFAULT '{}',
+  PRIMARY KEY(run_id, enemy_key)
+);
 CREATE TABLE IF NOT EXISTS threads (
   run_id TEXT NOT NULL REFERENCES runs(id),
   thread_key TEXT NOT NULL,
@@ -70,6 +88,18 @@ CREATE TABLE IF NOT EXISTS threads (
 export function ensurePlayer(playerId){
   db.prepare(`INSERT INTO players(id) VALUES (?) ON CONFLICT(id) DO UPDATE SET last_seen_at=CURRENT_TIMESTAMP`).run(playerId);
 }
+export function createAuthSession(tokenHash,playerId,expiresAt){
+  db.prepare("INSERT OR REPLACE INTO auth_sessions(token_hash,player_id,expires_at) VALUES (?,?,?)")
+    .run(tokenHash,playerId,expiresAt);
+}
+export function getAuthSession(tokenHash){
+  const row=db.prepare("SELECT token_hash,player_id,expires_at FROM auth_sessions WHERE token_hash=? AND expires_at>CURRENT_TIMESTAMP").get(tokenHash);
+  return row||null;
+}
+export function deleteExpiredSessions(){
+  db.prepare("DELETE FROM auth_sessions WHERE expires_at<=CURRENT_TIMESTAMP").run();
+}
+
 export function getInventory(runId){
   return db.prepare("SELECT item_key,name,quantity,meta_json FROM inventory WHERE run_id=? ORDER BY name").all(runId)
     .map(x=>({key:x.item_key,name:x.name,quantity:x.quantity,meta:JSON.parse(x.meta_json)}));
@@ -78,6 +108,10 @@ export function getNpcs(runId){
   return db.prepare("SELECT npc_key,name,alive,relation,state_json FROM npcs WHERE run_id=? ORDER BY name").all(runId)
     .map(x=>({key:x.npc_key,name:x.name,alive:Boolean(x.alive),relation:x.relation,state:JSON.parse(x.state_json)}));
 }
+export function getEnemies(runId){
+  return db.prepare("SELECT enemy_key,name,alive,hp,location,state_json FROM enemies WHERE run_id=? ORDER BY name").all(runId)
+    .map(x=>({key:x.enemy_key,name:x.name,alive:Boolean(x.alive),hp:x.hp,location:x.location,state:JSON.parse(x.state_json)}));
+}
 export function getThreads(runId){
   return db.prepare("SELECT thread_key,title,status,progress,state_json FROM threads WHERE run_id=? ORDER BY rowid").all(runId)
     .map(x=>({key:x.thread_key,title:x.title,status:x.status,progress:x.progress,state:JSON.parse(x.state_json)}));
@@ -85,7 +119,18 @@ export function getThreads(runId){
 export function getRun(runId){
   const row=db.prepare("SELECT * FROM runs WHERE id=?").get(runId);
   if(!row)return null;
-  return {...row,state:JSON.parse(row.state_json),inventory:getInventory(runId),npcs:getNpcs(runId),threads:getThreads(runId)};
+  return {
+    ...row,
+    state:JSON.parse(row.state_json),
+    inventory:getInventory(runId),
+    npcs:getNpcs(runId),
+    enemies:getEnemies(runId),
+    threads:getThreads(runId)
+  };
+}
+export function getRunForPlayer(runId,playerId){
+  const run=getRun(runId);
+  return run && run.player_id===playerId ? run : null;
 }
 export function createRun({id,playerId,scenarioId="town_origin"}){
   const sc=loadScenario(scenarioId);
@@ -112,6 +157,11 @@ export function createRun({id,playerId,scenarioId="town_origin"}){
     const th=db.prepare("INSERT INTO threads(run_id,thread_key,title,status,progress,state_json) VALUES (?,?,?,?,?,?)");
     for(const t of sc.threads||[]){
       th.run(id,t.key,t.title,t.status||"active",t.progress||0,JSON.stringify(t.state||{}));
+    }
+
+    const en=db.prepare("INSERT INTO enemies(run_id,enemy_key,name,alive,hp,location,state_json) VALUES (?,?,?,?,?,?,?)");
+    for(const e of sc.enemies||[]){
+      en.run(id,e.key,e.name,e.alive===false?0:1,e.hp??100,e.location,JSON.stringify(e.state||{}));
     }
   });
   tx();
@@ -148,6 +198,15 @@ export function saveTurn({run,action,settled,narrative}){
         ON CONFLICT(run_id,npc_key) DO UPDATE SET
           name=excluded.name,alive=excluded.alive,relation=excluded.relation,state_json=excluded.state_json
       `).run(run.id,npc.key,npc.name,npc.alive?1:0,npc.relation||0,JSON.stringify(npc.state||{}));
+    }
+
+    for(const enemy of settled.enemyOps||[]){
+      db.prepare(`
+        INSERT INTO enemies(run_id,enemy_key,name,alive,hp,location,state_json)
+        VALUES (?,?,?,?,?,?,?)
+        ON CONFLICT(run_id,enemy_key) DO UPDATE SET
+          name=excluded.name,alive=excluded.alive,hp=excluded.hp,location=excluded.location,state_json=excluded.state_json
+      `).run(run.id,enemy.key,enemy.name,enemy.alive?1:0,enemy.hp,enemy.location,JSON.stringify(enemy.state||{}));
     }
 
     for(const th of settled.threadOps||[]){
