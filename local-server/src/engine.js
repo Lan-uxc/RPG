@@ -8,6 +8,7 @@ import { loadScenario } from "./scenario-loader.js";
 import { searchLoot, useConsumable } from "./loot-engine.js";
 import { searchContainer, discardLoot } from "./container-engine.js";
 import { interactEnvironment, movementBlockedByEnvironment, environmentEffects } from "./environment-engine.js";
+import { stealthAction, breakStealth } from "./stealth-engine.js";
 
 function addMinutes(hhmm,minutes){
   const [h,m]=hhmm.split(":").map(Number);
