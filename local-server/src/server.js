@@ -58,8 +58,8 @@ app.get("/api/health",async(_req,res)=>{
   res.json({ok:true,ollama,model:OLLAMA_MODEL||models[0]||null,models});
 });
 
-app.get("/api/scenarios",(_req,res)=>{
-  try{res.json({scenarios:listScenarios()})}
+app.get("/api/scenarios",requirePlayer,(req,res)=>{
+  try{res.json({scenarios:listScenarios(getPlayerProfile(req.playerId))})}
   catch{res.status(500).json({error:"scenario_list_failed"})}
 });
 
@@ -115,8 +115,9 @@ app.post("/api/session",requirePlayer,(req,res)=>{
     const loadout=Array.isArray(req.body?.loadout)?req.body.loadout:[];
     const run=createRun({id:runId,playerId:req.playerId,scenarioId,loadout});
     res.json({run});
-  }catch{
-    res.status(400).json({error:"invalid_scenario"});
+  }catch(err){
+    const status=["scenario_locked","invalid_loadout","loadout_slot_conflict"].includes(err.message)?409:400;
+    res.status(status).json({error:err.message||"invalid_scenario"});
   }
 });
 
