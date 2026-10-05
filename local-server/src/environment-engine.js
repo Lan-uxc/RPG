@@ -2,7 +2,8 @@ function localObjects(scenario,location){return (scenario.objects||[]).filter(x=
 export function interactEnvironment(run,scenario,input){
   const states={...(run.state?.objectStates||{})};
   const objects=localObjects(scenario,run.location);
-  const target=objects.find(x=>!x.match||new RegExp(x.match).test(input));
+  const preferred=/搬|移動/.test(input)?"cover":/窗|玻璃|破窗/.test(input)?"window":/燈|照明/.test(input)?"light":/門|上鎖|鎖門|解鎖/.test(input)?"door":null;
+  const target=objects.find(x=>(!preferred||x.type===preferred)&&(!x.match||new RegExp(x.match).test(input))) || objects.find(x=>!x.match||new RegExp(x.match).test(input));
   if(!target)return {handled:false,state:null,facts:[],blockedMove:null};
   const old={...target.initial,...states[target.key]};
   let next={...old},fact=null;
