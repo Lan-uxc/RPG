@@ -100,7 +100,7 @@ if(intent.type==="investigate" && skills.has("trace_reader") && !facts.includes(
     }
   }
 
-  if(run.scenario_id==="harbor_trial" && intent.type==="investigate"){
+  if(scenario.investigation && (intent.type==="investigate"||intent.type==="social")){
     const evidence=investigateEvidence({...run,location},scenario,input);
     threadOps.push(...evidence.threadOps);facts.push(...evidence.facts);
     if(evidence.handled)outcome=evidence.threadOps[0]?.status==="resolved"?"thread_resolved":"evidence_gained";
