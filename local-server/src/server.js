@@ -3,9 +3,14 @@ import helmet from "helmet";
 import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ensurePlayer, createRun, getRun, getRecentTurns, saveTurn } from "./db.js";
+import {
+  ensurePlayer, createRun, getRunForPlayer, getRecentTurns, saveTurn,
+  createAuthSession, getAuthSession, deleteExpiredSessions
+} from "./db.js";
 import { settleAction, fallbackNarrative, getWorldForScenario } from "./engine.js";
 import { enqueue, narrate } from "./ollama.js";
+import { listScenarios } from "./scenario-loader.js";
+import { randomToken, hashToken, readCookie, sessionCookie } from "./session-auth.js";
 
 const app=express();
 const PORT=Number(process.env.PORT||3000);
@@ -26,6 +31,20 @@ function allow(key){
   arr.push(now);buckets.set(key,arr);return true;
 }
 
+function getPlayerFromRequest(req){
+  const token=readCookie(req,"rpg_session");
+  if(!token)return null;
+  const auth=getAuthSession(hashToken(token));
+  return auth?.player_id||null;
+}
+
+function requirePlayer(req,res,next){
+  const playerId=getPlayerFromRequest(req);
+  if(!playerId)return res.status(401).json({error:"auth_required"});
+  req.playerId=playerId;
+  next();
+}
+
 app.get("/api/health",async(_req,res)=>{
   let ollama=false,models=[];
   try{
@@ -34,6 +53,27 @@ app.get("/api/health",async(_req,res)=>{
   }catch{}
   res.json({ok:true,ollama,model:OLLAMA_MODEL||models[0]||null,models});
 });
+
+app.get("/api/scenarios",(_req,res)=>{
+  try{res.json({scenarios:listScenarios()})}
+  catch{res.status(500).json({error:"scenario_list_failed"})}
+});
+
+app.post("/api/auth/guest",(req,res)=>{
+  deleteExpiredSessions();
+  const existing=getPlayerFromRequest(req);
+  if(existing)return res.json({playerId:existing,reused:true});
+
+  const playerId=crypto.randomUUID();
+  const token=randomToken();
+  const expires=new Date(Date.now()+30*24*60*60*1000).toISOString().replace("T"," ").replace("Z","");
+  ensurePlayer(playerId);
+  createAuthSession(hashToken(token),playerId,expires);
+  res.setHeader("Set-Cookie",sessionCookie(token));
+  res.json({playerId,reused:false});
+});
+
+app.get("/api/me",requirePlayer,(req,res)=>res.json({playerId:req.playerId}));
 
 app.get("/api/world",(req,res)=>{
   const scenarioId=String(req.query.scenario||"town_origin");
@@ -44,27 +84,25 @@ app.get("/api/world",(req,res)=>{
   }
 });
 
-app.post("/api/session",(req,res)=>{
-  const playerId=String(req.body?.playerId||crypto.randomUUID()).slice(0,100);
+app.post("/api/session",requirePlayer,(req,res)=>{
   const scenarioId=String(req.body?.scenarioId||"town_origin").slice(0,80);
-  ensurePlayer(playerId);
   try{
     const runId=crypto.randomUUID();
-    const run=createRun({id:runId,playerId,scenarioId});
-    res.json({playerId,run});
+    const run=createRun({id:runId,playerId:req.playerId,scenarioId});
+    res.json({run});
   }catch{
     res.status(400).json({error:"invalid_scenario"});
   }
 });
 
-app.get("/api/run/:id",(req,res)=>{
-  const run=getRun(req.params.id);
+app.get("/api/run/:id",requirePlayer,(req,res)=>{
+  const run=getRunForPlayer(req.params.id,req.playerId);
   if(!run)return res.status(404).json({error:"run_not_found"});
   res.json({run,recent:getRecentTurns(run.id,30)});
 });
 
-app.post("/api/run/:id/action",async(req,res)=>{
-  const run=getRun(req.params.id);
+app.post("/api/run/:id/action",requirePlayer,async(req,res)=>{
+  const run=getRunForPlayer(req.params.id,req.playerId);
   if(!run)return res.status(404).json({error:"run_not_found"});
   if(run.status!=="active")return res.status(409).json({error:"run_not_active"});
 
@@ -72,7 +110,7 @@ app.post("/api/run/:id/action",async(req,res)=>{
   if(!action)return res.status(400).json({error:"action_required"});
   if(action.length>1000)return res.status(400).json({error:"action_too_long"});
 
-  const rateKey=String(req.ip||"unknown")+":"+run.id;
+  const rateKey=String(req.ip||"unknown")+":"+req.playerId;
   if(!allow(rateKey))return res.status(429).json({error:"rate_limited"});
 
   const settled=settleAction(run,action);
@@ -106,6 +144,7 @@ app.post("/api/run/:id/action",async(req,res)=>{
     state:updated.state,
     inventory:updated.inventory,
     npcs:updated.npcs,
+    enemies:updated.enemies,
     threads:updated.threads,
     narrative,
     summary:settled.summary,
