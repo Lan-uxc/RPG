@@ -9,6 +9,7 @@ import { discloseNpcInformation } from "./npc-disclosure.js";
 import { resolveEnemyCombat } from "./enemy-engine.js";
 import { evaluateSettlement } from "./settlement.js";
 import { searchLoot, useConsumable } from "./loot-engine.js";
+import { searchContainer, discardLoot } from "./container-engine.js";
 
 function run(overrides={}) {
   return {
@@ -216,6 +217,21 @@ function run(overrides={}) {
   const r=run({state:{...run().state,bagCapacity:1},inventory:[{key:"old_loot",name:"舊戰利品",quantity:1,meta:{loot:true,slots:1}}],enemies:[{key:"feral_dog",name:"野犬",alive:false,hp:0,location:"town_edge",state:{}}]});
   const loot=searchLoot(r,"搜索屍體");
   assert.equal(loot.ops.length,0); assert.equal(loot.enemyOps.length,0);
+}
+
+{
+  const sc=loadScenario("harbor_trial");
+  const r=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,bagCapacity:6,containerStates:{}}});
+  const found=searchContainer(r,sc,"我打開牆邊急救箱");
+  assert.equal(found.handled,true); assert.equal(found.ops[0].key,"bandage"); assert.equal(found.state.warehouse_medkit.looted,true);
+  const again=searchContainer({...r,state:{...r.state,containerStates:found.state}},sc,"我再打開牆邊急救箱");
+  assert.equal(again.handled,false);
+}
+
+{
+  const r=run({inventory:[...run().inventory,{key:"anomaly_fragment",name:"命痕碎片",quantity:1,meta:{loot:true,slots:2}}]});
+  const d=discardLoot(r,"我丟棄命痕碎片");
+  assert.equal(d.handled,true); assert.equal(d.ops[0].type,"remove");
 }
 
 console.log("engine selftest: OK");
