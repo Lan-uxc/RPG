@@ -7,7 +7,7 @@ import { socialConsequence, autonomousNpcTick } from "./npc-engine.js";
 import { resolveCombat } from "./combat-engine.js";
 import { loadScenario, listScenarios } from "./scenario-loader.js";
 import { discloseNpcInformation } from "./npc-disclosure.js";
-import { resolveEnemyCombat } from "./enemy-engine.js";
+import { resolveEnemyCombat, autonomousEnemyTick } from "./enemy-engine.js";
 import { evaluateSettlement } from "./settlement.js";
 import { searchLoot, useConsumable } from "./loot-engine.js";
 import { searchContainer, discardLoot } from "./container-engine.js";
@@ -290,6 +290,30 @@ function run(overrides={}) {
   const s=settleAction(r,"我打破側窗");
   assert.equal(s.state.noise,40);
   assert.ok(s.state.facts.includes("破裂聲在倉庫區傳開"));
+}
+
+{
+  const sc=loadScenario("harbor_trial");
+  const noisy=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,noise:40,objectStates:{}},enemies:[{key:"feral_dog",name:"野犬",alive:true,hp:45,location:"warehouse_lane",state:{}}]});
+  const tick=autonomousEnemyTick(noisy,sc);
+  assert.equal(tick.enemyOps[0].location,"old_warehouse");
+  assert.equal(tick.enemyOps[0].state.mode,"investigating");
+  assert.equal(tick.noise,30);
+}
+
+{
+  const sc=loadScenario("harbor_trial");
+  const blocked=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,noise:40,objectStates:{warehouse_door:{open:false,locked:false,barricaded:true}}},enemies:[{key:"feral_dog",name:"野犬",alive:true,hp:45,location:"warehouse_lane",state:{}}]});
+  const tick=autonomousEnemyTick(blocked,sc);
+  assert.equal(tick.enemyOps[0].location,"warehouse_lane");
+  assert.equal(tick.enemyOps[0].state.mode,"delayed");
+}
+
+{
+  const sc=loadScenario("harbor_trial");
+  const dark=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,noise:0,objectStates:{warehouse_light:{on:false}}},enemies:[{key:"feral_dog",name:"野犬",alive:true,hp:45,location:"old_warehouse",state:{}}]});
+  const tick=autonomousEnemyTick(dark,sc);
+  assert.equal(tick.enemyOps[0].state.mode,"searching");
 }
 
 console.log("engine selftest: OK");
