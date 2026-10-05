@@ -56,7 +56,7 @@ app.get("/api/health",async(_req,res)=>{
     const r=await fetch(`${OLLAMA_URL}/api/tags`,{signal:AbortSignal.timeout(2500)});
     const j=await r.json();models=(j.models||[]).map(m=>m.name);ollama=r.ok;
   }catch{}
-  res.json({ok:true,ollama,model:OLLAMA_MODEL||models[0]||null,models});
+  res.json({ok:true,ollama});
 });
 
 app.get("/api/scenarios",requirePlayer,(req,res)=>{
@@ -107,7 +107,7 @@ app.post("/api/hub/stash/sell",requirePlayer,(req,res)=>{
   }catch(err){res.status(409).json({error:err.message||"stash_sell_failed"});}
 });
 
-app.get("/api/world",(req,res)=>{
+app.get("/api/world",requirePlayer,(req,res)=>{
   const scenarioId=String(req.query.scenario||"town_origin");
   try{
     res.json({scenarioId,places:getWorldForScenario(scenarioId)});
@@ -132,7 +132,7 @@ app.post("/api/session",requirePlayer,(req,res)=>{
 app.get("/api/run/:id",requirePlayer,(req,res)=>{
   const run=getRunForPlayer(req.params.id,req.playerId);
   if(!run)return res.status(404).json({error:"run_not_found"});
-  res.json({run,recent:getRecentTurns(run.id,30)});
+  res.json({run,recent:getRecentTurns(run.id,30),settlement:evaluateSettlement(run)});
 });
 
 app.post("/api/run/:id/action",requirePlayer,async(req,res)=>{
