@@ -16,6 +16,8 @@ import { evaluateSettlement } from "./settlement.js";
 import { listScenarios } from "./scenario-loader.js";
 import { randomToken, hashToken, readCookie, sessionCookie } from "./session-auth.js";
 import { publicShopItems } from "./shop-catalog.js";
+import { citySnapshot, buyProperty, openBusiness, befriend, challengePvp, respondPvp } from "./city-engine.js";
+import { marketSnapshot, createListing, buyListing, publishIntel, acquireIntel } from "./city-market.js";
 
 const app=express();
 const PORT=Number(process.env.PORT||3000);
@@ -106,6 +108,17 @@ app.post("/api/hub/stash/sell",requirePlayer,(req,res)=>{
     res.json({profile});
   }catch(err){res.status(409).json({error:err.message||"stash_sell_failed"});}
 });
+
+app.get("/api/city",requirePlayer,(req,res)=>{res.json({...citySnapshot(req.playerId),...marketSnapshot()})});
+app.post("/api/city/property/buy",requirePlayer,(req,res)=>{try{res.json(buyProperty(req.playerId,String(req.body?.id||"").slice(0,80)))}catch(err){res.status(409).json({error:err.message})}});
+app.post("/api/city/business/open",requirePlayer,(req,res)=>{try{res.json(openBusiness(req.playerId,{propertyId:String(req.body?.propertyId||"").slice(0,80),name:req.body?.name,kind:req.body?.kind}))}catch(err){res.status(409).json({error:err.message})}});
+app.post("/api/city/friend",requirePlayer,(req,res)=>{try{res.json(befriend(req.playerId,String(req.body?.targetId||"").slice(0,80)))}catch(err){res.status(409).json({error:err.message})}});
+app.post("/api/city/market/list",requirePlayer,(req,res)=>{try{res.json(createListing(req.playerId,req.body||{}))}catch(err){res.status(409).json({error:err.message})}});
+app.post("/api/city/market/buy",requirePlayer,(req,res)=>{try{res.json(buyListing(req.playerId,String(req.body?.id||"").slice(0,80)))}catch(err){res.status(409).json({error:err.message})}});
+app.post("/api/city/intel/publish",requirePlayer,(req,res)=>{try{res.json(publishIntel(req.playerId,req.body||{}))}catch(err){res.status(409).json({error:err.message})}});
+app.post("/api/city/intel/acquire",requirePlayer,(req,res)=>{try{res.json(acquireIntel(req.playerId,String(req.body?.id||"").slice(0,80)))}catch(err){res.status(409).json({error:err.message})}});
+app.post("/api/city/pvp/challenge",requirePlayer,(req,res)=>{try{res.json(challengePvp(req.playerId,String(req.body?.targetId||"").slice(0,80)))}catch(err){res.status(409).json({error:err.message})}});
+app.post("/api/city/pvp/respond",requirePlayer,(req,res)=>{try{res.json(respondPvp(req.playerId,String(req.body?.id||"").slice(0,80),Boolean(req.body?.accept)))}catch(err){res.status(409).json({error:err.message})}});
 
 app.get("/api/world",requirePlayer,(req,res)=>{
   const scenarioId=String(req.query.scenario||"town_origin");
