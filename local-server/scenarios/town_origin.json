@@ -1,0 +1,38 @@
+{
+  "id": "town_origin",
+  "name": "命痕世界：邊緣城鎮",
+  "start": {
+    "location": "town_edge",
+    "time": "08:10",
+    "hp": 100,
+    "san": 100,
+    "reward": 0,
+    "inventory": [
+      {"key":"phone","name":"手機","quantity":1,"meta":{}},
+      {"key":"wallet","name":"錢包","quantity":1,"meta":{"cash":1200}},
+      {"key":"bag","name":"隨身背包","quantity":1,"meta":{}}
+    ]
+  },
+  "facts": [
+    "雨剛停",
+    "老市場屋頂曾出現短暫的暗色紋路"
+  ],
+  "threads": [
+    {
+      "key":"market_anomaly",
+      "title":"老市場屋頂的暗色紋路",
+      "status":"active",
+      "progress":0,
+      "state":{}
+    }
+  ],
+  "places": {
+    "town_edge":{"name":"北台灣・邊緣城鎮","routes":{"old_market":8,"bus_station":4,"riverside":14,"industrial_gate":22}},
+    "old_market":{"name":"老市場","routes":{"town_edge":8,"bus_station":6,"riverside":12}},
+    "bus_station":{"name":"公車站","routes":{"town_edge":4,"old_market":6,"taipei_transit":35}},
+    "riverside":{"name":"河堤道路","routes":{"town_edge":14,"old_market":12,"industrial_gate":16}},
+    "industrial_gate":{"name":"工業區入口","routes":{"town_edge":22,"riverside":16}},
+    "taipei_transit":{"name":"前往台北途中","routes":{"bus_station":35,"taipei_city":45}},
+    "taipei_city":{"name":"台北市區","routes":{"taipei_transit":45}}
+  }
+}
