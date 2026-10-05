@@ -34,6 +34,8 @@ export function settleAction(run,action){
   const world=scenario.places;
   const input=action.trim();
   const intent=parseAction(input);
+  const skills=new Set(run.state?.skills||[]);
+  const bloodlines=run.state?.bloodlines||[];
   const next=clone(run.state);
   const inventoryOps=[],threadOps=[],enemyOps=[];
   let npcOps=[];
@@ -51,6 +53,12 @@ export function settleAction(run,action){
   }
 
   const facts=[...(next.facts||[])];
+  if(intent.type==="investigate" && skills.has("trace_reader") && !facts.includes("痕跡判讀訓練正在影響你的調查方式")){
+    facts.push("痕跡判讀訓練正在影響你的調查方式");
+  }
+  if(bloodlines.some(x=>x.key==="fate_mark_resonance") && /命痕|異常|裂痕|紋路/.test(input)){
+    if(!facts.includes("你能察覺命痕現象帶來的微弱異常感"))facts.push("你能察覺命痕現象帶來的微弱異常感");
+  }
   const marketThread=run.threads.find(t=>t.key==="market_anomaly");
 
   if(location==="old_market" && intent.type==="investigate" && /屋頂|暗色|裂痕|命痕/.test(input)){
@@ -104,11 +112,18 @@ export function settleAction(run,action){
 
   const combat=resolveCombat(run,intent,input);
   if(combat && enemyResult.target){
-    next.hp=combat.hp;next.san=combat.san;
+    let hpLoss=Math.max(0,(run.state?.hp??100)-combat.hp);
+    let sanLoss=Math.max(0,(run.state?.san??100)-combat.san);
+    if(skills.has("danger_sense") && hpLoss>0){
+      hpLoss=Math.max(1,hpLoss-5);
+      facts.push("危機感知讓你提早察覺攻擊方向，降低了部分傷害");
+    }
+    next.hp=Math.max(0,(run.state?.hp??100)-hpLoss);
+    next.san=Math.max(0,(run.state?.san??100)-sanLoss);
     facts.push(...combat.facts);
     inventoryOps.push(...combat.inventoryOps);
     outcome=enemyResult.target.alive ? combat.outcome : "enemy_defeated";
-    if(combat.consequence.incapacitated){
+    if(next.hp<=0){
       next.flags.incapacitated=true;
       threadOps.push({
         key:"medical_recovery",title:"處理重傷",status:"active",progress:0,
