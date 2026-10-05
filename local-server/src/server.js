@@ -19,6 +19,7 @@ import { publicShopItems } from "./shop-catalog.js";
 import { citySnapshot, buyProperty, openBusiness, befriend, challengePvp, respondPvp } from "./city-engine.js";
 import { marketSnapshot, createListing, buyListing, publishIntel, acquireIntel } from "./city-market.js";
 import { directAttack, wantedState, publicWanted } from "./city-law.js";
+import { directAttack, wantedState, publicWanted } from "./city-law.js";
 
 const app=express();
 const PORT=Number(process.env.PORT||3000);
@@ -121,6 +122,9 @@ app.post("/api/city/intel/acquire",requirePlayer,(req,res)=>{try{res.json(acquir
 app.post("/api/city/attack",requirePlayer,(req,res)=>{try{res.json(directAttack(req.playerId,{targetId:String(req.body?.targetId||"").slice(0,80),district:String(req.body?.district||"中央廣場").slice(0,40),lethal:Boolean(req.body?.lethal),witnessed:req.body?.witnessed!==false,evidence:req.body?.evidence??50}))}catch(err){res.status(409).json({error:err.message})}});
 app.post("/api/city/pvp/challenge",requirePlayer,(req,res)=>{try{res.json(challengePvp(req.playerId,String(req.body?.targetId||"").slice(0,80),req.body?.terms||{}))}catch(err){res.status(409).json({error:err.message})}});
 app.post("/api/city/pvp/respond",requirePlayer,(req,res)=>{try{res.json(respondPvp(req.playerId,String(req.body?.id||"").slice(0,80),Boolean(req.body?.accept)))}catch(err){res.status(409).json({error:err.message})}});
+app.post("/api/city/attack",requirePlayer,(req,res)=>{try{res.json(directAttack(req.playerId,{targetId:String(req.body?.targetId||"").slice(0,80),district:String(req.body?.district||"中央廣場").slice(0,40),lethal:Boolean(req.body?.lethal),witnessed:req.body?.witnessed!==false,evidence:Number(req.body?.evidence??50)}))}catch(err){res.status(409).json({error:err.message})}});
+app.get("/api/city/wanted",requirePlayer,(req,res)=>{res.json({self:wantedState(req.playerId),wanted:publicWanted()})});
+
 
 app.get("/api/world",requirePlayer,(req,res)=>{
   const scenarioId=String(req.query.scenario||"town_origin");
