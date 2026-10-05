@@ -23,7 +23,7 @@ export function ensureLocalNpcOps(run, location) {
   const existing=new Set((run.npcs||[]).map(n=>n.key));
   const ops=[];
   for(const npc of Object.values(NPC_TEMPLATES)){
-    if(npc.location!==location || existing.has(npc.key)) continue;
+    if(npc.location!==location || existing.has(npc.key) || (run.scenario_id&&run.scenario_id!=="town_origin")) continue;
     ops.push({
       key:npc.key,name:npc.name,alive:true,relation:0,
       state:{
