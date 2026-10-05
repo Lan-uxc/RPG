@@ -22,6 +22,10 @@ export function parseAction(input) {
   else if (/公車站|車站/.test(text)) intent.destination="bus_station";
   else if (/河堤/.test(text)) intent.destination="riverside";
   else if (/工業區/.test(text)) intent.destination="industrial_gate";
+  else if (/港區入口|港口入口/.test(text)) intent.destination="harbor_gate";
+  else if (/倉庫巷道|倉庫區/.test(text)) intent.destination="warehouse_lane";
+  else if (/舊倉庫|老倉庫/.test(text)) intent.destination="old_warehouse";
+  else if (/防波堤/.test(text)) intent.destination="seawall";
 
   if (/礦泉水|水/.test(text)) intent.item="water";
   if (/早餐|三明治/.test(text)) intent.item="breakfast";
