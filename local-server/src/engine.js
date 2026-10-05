@@ -6,6 +6,7 @@ import { resolveCombat } from "./combat-engine.js";
 import { resolveEnemyCombat } from "./enemy-engine.js";
 import { loadScenario } from "./scenario-loader.js";
 import { searchLoot, useConsumable } from "./loot-engine.js";
+import { searchContainer, discardLoot } from "./container-engine.js";
 
 function addMinutes(hhmm,minutes){
   const [h,m]=hhmm.split(":").map(Number);
@@ -122,10 +123,21 @@ export function settleAction(run,action){
   const enemyResult=resolveEnemyCombat(run,intent,input);
   enemyOps.push(...enemyResult.enemyOps);
   facts.push(...enemyResult.facts);
+  const discarded=discardLoot(run,input);
+  inventoryOps.push(...discarded.ops);
+  facts.push(...discarded.facts);
+
   const searched=searchLoot(run,input);
   inventoryOps.push(...searched.ops);
   enemyOps.push(...searched.enemyOps);
   facts.push(...searched.facts);
+
+  if(!searched.handled){
+    const container=searchContainer(run,scenario,input);
+    inventoryOps.push(...container.ops);
+    facts.push(...container.facts);
+    if(container.state)next.containerStates=container.state;
+  }
 
   const combat=resolveCombat(run,intent,input);
   if(combat && enemyResult.target){
