@@ -5,10 +5,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   ensurePlayer, createRun, getRunForPlayer, getRecentTurns, saveTurn,
-  createAuthSession, getAuthSession, deleteExpiredSessions
+  createAuthSession, getAuthSession, deleteExpiredSessions,
+  getPlayerProfile, settleRunForPlayer
 } from "./db.js";
 import { settleAction, fallbackNarrative, getWorldForScenario } from "./engine.js";
-import { enqueue, narrate } from "./ollama.js";
+import { enqueue, narrate, getQueueStatus } from "./ollama.js";
+import { withRunLock } from "./run-lock.js";
+import { evaluateSettlement } from "./settlement.js";
 import { listScenarios } from "./scenario-loader.js";
 import { randomToken, hashToken, readCookie, sessionCookie } from "./session-auth.js";
 
@@ -73,7 +76,11 @@ app.post("/api/auth/guest",(req,res)=>{
   res.json({playerId,reused:false});
 });
 
-app.get("/api/me",requirePlayer,(req,res)=>res.json({playerId:req.playerId}));
+app.get("/api/me",requirePlayer,(req,res)=>res.json({playerId:req.playerId,profile:getPlayerProfile(req.playerId)}));
+
+app.get("/api/queue",requirePlayer,(_req,res)=>{
+  res.json(getQueueStatus());
+});
 
 app.get("/api/world",(req,res)=>{
   const scenarioId=String(req.query.scenario||"town_origin");
@@ -102,10 +109,6 @@ app.get("/api/run/:id",requirePlayer,(req,res)=>{
 });
 
 app.post("/api/run/:id/action",requirePlayer,async(req,res)=>{
-  const run=getRunForPlayer(req.params.id,req.playerId);
-  if(!run)return res.status(404).json({error:"run_not_found"});
-  if(run.status!=="active")return res.status(409).json({error:"run_not_active"});
-
   const action=String(req.body?.action||"").trim();
   if(!action)return res.status(400).json({error:"action_required"});
   if(action.length>1000)return res.status(400).json({error:"action_too_long"});
@@ -113,44 +116,72 @@ app.post("/api/run/:id/action",requirePlayer,async(req,res)=>{
   const rateKey=String(req.ip||"unknown")+":"+req.playerId;
   if(!allow(rateKey))return res.status(429).json({error:"rate_limited"});
 
-  const settled=settleAction(run,action);
-  const recent=getRecentTurns(run.id,6);
-  let narrative="",ai=false;
+  try{
+    const payload=await withRunLock(req.params.id,async()=>{
+      const run=getRunForPlayer(req.params.id,req.playerId);
+      if(!run)throw Object.assign(new Error("run_not_found"),{status:404});
+      if(run.status!=="active")throw Object.assign(new Error("run_not_active"),{status:409});
 
-  const model=OLLAMA_MODEL||(await(async()=>{
-    try{
-      const r=await fetch(`${OLLAMA_URL}/api/tags`);
-      const j=await r.json();
-      return j.models?.[0]?.name||"";
-    }catch{return""}
-  })());
+      const settled=settleAction(run,action);
+      const recent=getRecentTurns(run.id,6);
+      let narrative="",ai=false;
 
-  if(model){
-    try{
-      narrative=await enqueue(()=>narrate({model,ollamaUrl:OLLAMA_URL,settled,action,recent}));
-      ai=Boolean(narrative);
-    }catch{}
+      const model=OLLAMA_MODEL||(await(async()=>{
+        try{
+          const r=await fetch(`${OLLAMA_URL}/api/tags`);
+          const j=await r.json();
+          return j.models?.[0]?.name||"";
+        }catch{return""}
+      })());
+
+      if(model){
+        try{
+          narrative=await enqueue(()=>narrate({model,ollamaUrl:OLLAMA_URL,settled,action,recent}));
+          ai=Boolean(narrative);
+        }catch{}
+      }
+      if(!narrative)narrative=fallbackNarrative(settled,action);
+
+      const updated=saveTurn({run,action,settled,narrative});
+      const world=getWorldForScenario(updated.scenario_id);
+      const settlement=evaluateSettlement(updated);
+
+      return {
+        ai,
+        turn:updated.turn,
+        time:updated.world_time,
+        location:updated.location,
+        locationName:world[updated.location]?.name||updated.location,
+        state:updated.state,
+        inventory:updated.inventory,
+        npcs:updated.npcs,
+        enemies:updated.enemies,
+        threads:updated.threads,
+        narrative,
+        summary:settled.summary,
+        outcome:settled.outcome,
+        parsedIntent:settled.parsedIntent,
+        settlement
+      };
+    });
+    res.json(payload);
+  }catch(err){
+    res.status(err.status||500).json({error:err.message||"action_failed"});
   }
-  if(!narrative)narrative=fallbackNarrative(settled,action);
+});
 
-  const updated=saveTurn({run,action,settled,narrative});
-  const world=getWorldForScenario(updated.scenario_id);
-  res.json({
-    ai,
-    turn:updated.turn,
-    time:updated.world_time,
-    location:updated.location,
-    locationName:world[updated.location]?.name||updated.location,
-    state:updated.state,
-    inventory:updated.inventory,
-    npcs:updated.npcs,
-    enemies:updated.enemies,
-    threads:updated.threads,
-    narrative,
-    summary:settled.summary,
-    outcome:settled.outcome,
-    parsedIntent:settled.parsedIntent
-  });
+app.post("/api/run/:id/settle",requirePlayer,(req,res)=>{
+  try{
+    const run=getRunForPlayer(req.params.id,req.playerId);
+    if(!run)return res.status(404).json({error:"run_not_found"});
+    const result=evaluateSettlement(run);
+    if(!result.complete)return res.status(409).json({error:"scenario_not_complete",settlement:result});
+    const settled=settleRunForPlayer(run.id,req.playerId,result.reward);
+    res.json({settlement:result,profile:settled.profile,run:settled.run});
+  }catch(err){
+    const status=err.message==="run_already_settled"?409:500;
+    res.status(status).json({error:err.message||"settlement_failed"});
+  }
 });
 
 app.listen(PORT,"127.0.0.1",()=>{
