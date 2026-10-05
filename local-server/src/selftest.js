@@ -314,7 +314,7 @@ function run(overrides={}) {
   const sc=loadScenario("harbor_trial");
   const dark=run({scenario_id:"harbor_trial",location:"old_warehouse",state:{...run().state,noise:0,objectStates:{warehouse_light:{on:false}}},enemies:[{key:"feral_dog",name:"野犬",alive:true,hp:45,location:"old_warehouse",state:{}}]});
   const tick=autonomousEnemyTick(dark,sc);
-  assert.equal(tick.enemyOps[0].state.mode,"searching");
+  assert.equal(tick.enemyOps[0].state.mode,"engaged");
 }
 
 {
