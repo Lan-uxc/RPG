@@ -18,6 +18,7 @@ import { randomToken, hashToken, readCookie, sessionCookie } from "./session-aut
 import { publicShopItems } from "./shop-catalog.js";
 import { citySnapshot, buyProperty, openBusiness, befriend, challengePvp, respondPvp } from "./city-engine.js";
 import { marketSnapshot, createListing, buyListing, publishIntel, acquireIntel } from "./city-market.js";
+import { directAttack, wantedState, publicWanted } from "./city-law.js";
 
 const app=express();
 const PORT=Number(process.env.PORT||3000);
@@ -109,7 +110,7 @@ app.post("/api/hub/stash/sell",requirePlayer,(req,res)=>{
   }catch(err){res.status(409).json({error:err.message||"stash_sell_failed"});}
 });
 
-app.get("/api/city",requirePlayer,(req,res)=>{res.json({...citySnapshot(req.playerId),...marketSnapshot()})});
+app.get("/api/city",requirePlayer,(req,res)=>{res.json({...citySnapshot(req.playerId),...marketSnapshot(),wanted:wantedState(req.playerId),wantedBoard:publicWanted()})});
 app.post("/api/city/property/buy",requirePlayer,(req,res)=>{try{res.json(buyProperty(req.playerId,String(req.body?.id||"").slice(0,80)))}catch(err){res.status(409).json({error:err.message})}});
 app.post("/api/city/business/open",requirePlayer,(req,res)=>{try{res.json(openBusiness(req.playerId,{propertyId:String(req.body?.propertyId||"").slice(0,80),name:req.body?.name,kind:req.body?.kind}))}catch(err){res.status(409).json({error:err.message})}});
 app.post("/api/city/friend",requirePlayer,(req,res)=>{try{res.json(befriend(req.playerId,String(req.body?.targetId||"").slice(0,80)))}catch(err){res.status(409).json({error:err.message})}});
@@ -117,7 +118,8 @@ app.post("/api/city/market/list",requirePlayer,(req,res)=>{try{res.json(createLi
 app.post("/api/city/market/buy",requirePlayer,(req,res)=>{try{res.json(buyListing(req.playerId,String(req.body?.id||"").slice(0,80)))}catch(err){res.status(409).json({error:err.message})}});
 app.post("/api/city/intel/publish",requirePlayer,(req,res)=>{try{res.json(publishIntel(req.playerId,req.body||{}))}catch(err){res.status(409).json({error:err.message})}});
 app.post("/api/city/intel/acquire",requirePlayer,(req,res)=>{try{res.json(acquireIntel(req.playerId,String(req.body?.id||"").slice(0,80)))}catch(err){res.status(409).json({error:err.message})}});
-app.post("/api/city/pvp/challenge",requirePlayer,(req,res)=>{try{res.json(challengePvp(req.playerId,String(req.body?.targetId||"").slice(0,80)))}catch(err){res.status(409).json({error:err.message})}});
+app.post("/api/city/attack",requirePlayer,(req,res)=>{try{res.json(directAttack(req.playerId,{targetId:String(req.body?.targetId||"").slice(0,80),district:String(req.body?.district||"中央廣場").slice(0,40),lethal:Boolean(req.body?.lethal),witnessed:req.body?.witnessed!==false,evidence:req.body?.evidence??50}))}catch(err){res.status(409).json({error:err.message})}});
+app.post("/api/city/pvp/challenge",requirePlayer,(req,res)=>{try{res.json(challengePvp(req.playerId,String(req.body?.targetId||"").slice(0,80),req.body?.terms||{}))}catch(err){res.status(409).json({error:err.message})}});
 app.post("/api/city/pvp/respond",requirePlayer,(req,res)=>{try{res.json(respondPvp(req.playerId,String(req.body?.id||"").slice(0,80),Boolean(req.body?.accept)))}catch(err){res.status(409).json({error:err.message})}});
 
 app.get("/api/world",requirePlayer,(req,res)=>{
