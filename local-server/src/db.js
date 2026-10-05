@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
-import { loadScenario } from "./scenario-loader.js";
+import { loadScenario, scenarioUnlocked } from "./scenario-loader.js";
 import { getShopItem, requirementsMet } from "./shop-catalog.js";
 
 const dataDir=path.resolve("data");
@@ -187,6 +187,14 @@ export function createRun({id,playerId,scenarioId="town_origin",loadout=[]}){
   const requested=[...new Set(Array.isArray(loadout)?loadout:[])].slice(0,2);
   if(requested.some(key=>!ownedEquipment.has(key)))throw new Error("invalid_loadout");
   const equipment=requested.map(key=>ownedEquipment.get(key));
+  const slots=new Set();
+  for(const gear of equipment){
+    const slot=gear.state?.slot;
+    if(slot&&slots.has(slot))throw new Error("loadout_slot_conflict");
+    if(slot)slots.add(slot);
+  }
+  const profile=getPlayerProfile(playerId);
+  if(!scenarioUnlocked(sc,profile))throw new Error("scenario_locked");
   const maxHp=(sc.start.hp??100)+upgrades.reduce((n,u)=>n+Number(u.state?.maxHp||0),0);
   const maxSan=(sc.start.san??100)+upgrades.reduce((n,u)=>n+Number(u.state?.maxSan||0),0);
   const skills=upgrades.map(u=>u.state?.skill).filter(Boolean);
@@ -235,14 +243,17 @@ export function createRun({id,playerId,scenarioId="town_origin",loadout=[]}){
   return getRun(id);
 }
 export function returnFailedRunToHub(runId,playerId){
+  let penalty=0;
   const tx=db.transaction(()=>{
-    const run=db.prepare("SELECT id,status,player_id FROM runs WHERE id=?").get(runId);
-    if(!run || run.player_id!==playerId)throw new Error("run_not_found");
+    const run=db.prepare("SELECT id,status,player_id,scenario_id FROM runs WHERE id=?").get(runId);
+    if(!run||run.player_id!==playerId)throw new Error("run_not_found");
     if(run.status!=="failed")throw new Error("run_not_failed");
-    db.prepare("UPDATE player_profiles SET hub_state_json='{\"location\":\"hub\"}',updated_at=CURRENT_TIMESTAMP WHERE player_id=?").run(playerId);
+    const sc=loadScenario(run.scenario_id);
+    penalty=Math.max(0,Number(sc.death?.rewardPointLoss||0));
+    db.prepare(`UPDATE player_profiles SET reward_points=MAX(0,reward_points-?),hub_state_json='{"location":"hub"}',updated_at=CURRENT_TIMESTAMP WHERE player_id=?`).run(penalty,playerId);
   });
   tx();
-  return {run:getRun(runId),profile:getPlayerProfile(playerId)};
+  return {run:getRun(runId),profile:getPlayerProfile(playerId),penalty};
 }
 
 export function settleRunForPlayer(runId,playerId,reward){
