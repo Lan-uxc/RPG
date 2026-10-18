@@ -982,7 +982,12 @@ Deno.serve(async req=>{
   const s=await auth(String(b.sessionCode||''),String(b.accessToken||''))
   if(!s)return J({error:'Session 驗證失敗'},401)
   if(b.op==='load')return J({state:await payload(s)})
-  if(b.op==='act')return J({state:await act(s,String(b.input||''),b.tags||[])})
+  if(b.op==='act'){
+    // Reject stale tabs before entering the state-mutating resolver.
+    // This is not a substitute for an atomic database turn transaction.
+    if(b.expectedTurn!==undefined&&(!Number.isSafeInteger(b.expectedTurn)||b.expectedTurn!==s.turn_no))return J({error:'回合狀態已更新，請重新載入後確認結果；不要直接重送。',code:'STALE_TURN'},409)
+    return J({state:await act(s,String(b.input||''),b.tags||[])})
+   }
   return J({error:'unknown'},400)
  }catch(e){console.error(e);return J({error:String(e?.message||e)},500)}
 })
