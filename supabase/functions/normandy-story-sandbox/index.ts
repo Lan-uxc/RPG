@@ -1,5 +1,6 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { classifyFirstAction } from './action-intent.ts'
 
 const sj=Deno.env.get('SUPABASE_SECRET_KEYS')||''
 let sk=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||''
@@ -183,20 +184,7 @@ function applyMovement(w:any,movement:any){
  return true
 }
 
-function parse(input:string){
- const s=input
- if(/轉化|吸血鬼|血裔|咬/.test(s))return'convert'
- if(/問|詢問|告訴|談|叫住|喊/.test(s))return'talk'
- if(/救|傷兵|包紮|醫護|拖.*人/.test(s))return'aid'
- if(/跟|尾隨|追上/.test(s))return'follow'
- if(/無線電|通信|通訊|頻道/.test(s))return'radio'
- if(/射|開火|攻擊|壓制|投擲|手榴彈/.test(s))return'fight'
- if(/躲|趴|掩體|隱蔽|藏/.test(s))return'hide'
- if(/看|觀察|判斷|檢查|搜索|搜尋|找/.test(s))return'observe'
- if(/走|跑|衝|前進|後退|離開|往|靠近|爬|繞/.test(s))return'move'
- if(/等|休息|停留|睡/.test(s))return'wait'
- return'free'
-}
+function parse(input:string){return classifyFirstAction(input)}
 function namedTarget(input:string,npcs:any[]){
  const pairs:any[]=[
   [/梅瑟|中士/,'mercer'],[/佛斯特|醫護/,'foster'],[/里德|工兵/,'reed'],[/柯爾|通訊|通信/,'cole'],
