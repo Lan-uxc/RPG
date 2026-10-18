@@ -234,7 +234,7 @@ async function createCharacter(){
 }
 function enterStory(){$('startBack').classList.add('hidden');showHub()}
 async function resume(){const c=localStorage.getItem(C),t=localStorage.getItem(T);if(!c||!t)return;try{const d=await call({op:'load',sessionCode:c,accessToken:t});S=d.state;$('startBack').classList.add('hidden');showHub()}catch(e){localStorage.removeItem(C);localStorage.removeItem(T)}}
-async function act(v){v=(v||$('input').value).trim();if(!v||!S||BUSY||S.session.status!=='active')return;try{setBusy(true);$('input').value='';updateCount();const d=await call({op:'act',sessionCode:localStorage.getItem(C),accessToken:localStorage.getItem(T),input:v,tags:SELECTED});S=d.state;SELECTED=[];render();window.scrollTo({top:0,behavior:'smooth'})}catch(e){alert(e.message)}finally{setBusy(false)}}
+async function act(v){v=(v||$('input').value).trim();if(!v||!S||BUSY||S.session.status!=='active')return;const expectedTurn=S.session.turn_no;try{setBusy(true);const d=await call({op:'act',sessionCode:localStorage.getItem(C),accessToken:localStorage.getItem(T),input:v,tags:SELECTED,expectedTurn});S=d.state;SELECTED=[];$('input').value='';updateCount();render();window.scrollTo({top:0,behavior:'smooth'})}catch(e){if(!$('input').value.trim()){$('input').value=v;updateCount()}alert(e.message+'\n文字已保留，請先確認遊戲狀態，避免重複送出。')}finally{setBusy(false)}}
 function quick(i){if(Q[i])act(Q[i].input)}
 function updateCount(){$('counter').textContent=$('input').value.length+'/600'}
 function shortResult(t){const r=t?.resolution||{};return r.shortResult||r.newClue||r.consequence||'世界狀態已改變'}
